@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
 
-use crate::{error::AggregatorError, DexId, RouteAccounts, SwapLeg};
+use crate::{error::AggregatorError, SwapLeg};
 
 pub const LIFINITY_PROGRAM_ID: Pubkey = pubkey!("LfacfEjtujQTWBXZVzgkiPBw7Mt4guHSsmAi7y3cycL");
 
@@ -10,11 +10,7 @@ pub const LIFINITY_PROGRAM_ID: Pubkey = pubkey!("LfacfEjtujQTWBXZVzgkiPBw7Mt4guH
 /// Assumption: `leg.data` already contains the exact serialized swap instruction data
 /// (as produced by Anchor-ts). `leg.account_count` specifies how many AccountInfos to
 /// pass to the underlying program, starting at `rem[0]`.
-pub fn invoke<'info>(
-    ctx: &CpiContext<'_, '_, '_, 'info, RouteAccounts<'info>>,
-    leg: &SwapLeg,
-    rem: &[AccountInfo<'info>],
-) -> Result<(u64, u64, usize)> {
+pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
     let needed = leg.account_count as usize;
     require!(
         rem.len() >= needed,

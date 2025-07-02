@@ -26,7 +26,7 @@ pub mod aggregator {
 
         for (i, leg) in legs.iter().enumerate() {
             // Each adapter will consume some of the remaining accounts slice
-            let (spent, received, consumed) = adapter::dispatch(&ctx.into(), leg, rem_accs)?;
+            let (spent, received, consumed) = adapter::dispatch(leg, rem_accs)?;
             spent_total = spent_total
                 .checked_add(spent)
                 .ok_or(ErrorCode::NumericalOverflow)?;
