@@ -1,17 +1,13 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
 
-use crate::{error::AggregatorError, RouteAccounts, SwapLeg};
+use crate::{error::AggregatorError, SwapLeg};
 
 pub const ORCA_WHIRLPOOL_PROGRAM_ID: Pubkey =
     pubkey!("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc");
 
 /// Invoke Orca Whirlpool `swap` instruction.
-pub fn invoke<'info>(
-    _ctx: &CpiContext<'_, '_, '_, 'info, RouteAccounts<'info>>,
-    leg: &SwapLeg,
-    rem: &[AccountInfo<'info>],
-) -> Result<(u64, u64, usize)> {
+pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
     let needed = leg.account_count as usize;
     require!(
         rem.len() >= needed,
