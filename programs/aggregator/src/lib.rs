@@ -55,7 +55,7 @@ pub mod aggregator {
         let fee_amount: u64 = ((out_amount as u128 * fee_bps as u128) / 10_000u128)
             .try_into()
             .map_err(|_| ErrorCode::NumericalOverflow)?;
-        let user_receive = out_amount
+        let _user_receive = out_amount
             .checked_sub(fee_amount)
             .ok_or(ErrorCode::NumericalOverflow)?;
 

@@ -4,7 +4,7 @@ pub mod orca;
 pub mod solar_clmm;
 pub mod solar_cp;
 
-use crate::{error::AggregatorError, DexId, SwapLeg};
+use crate::{DexId, SwapLeg};
 use anchor_lang::prelude::*;
 
 pub fn dispatch<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
