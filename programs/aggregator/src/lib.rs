@@ -103,6 +103,9 @@ pub struct RouteAccounts<'info> {
 pub enum DexId {
     LifinityV2 = 0,
     OrcaWhirlpool = 1,
+    SolarCp = 2,
+    SolarClmm = 3,
+    Invariant = 4,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
