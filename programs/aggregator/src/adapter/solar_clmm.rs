@@ -13,6 +13,10 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         AggregatorError::RemainingAccountsMismatch
     );
 
+    if needed == 0 {
+        return Ok((leg.in_amount, leg.min_out, 0));
+    }
+
     let rem_slice = &rem[..needed];
     let metas: Vec<_> = rem_slice
         .iter()
