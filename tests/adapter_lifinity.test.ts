@@ -6,7 +6,7 @@ import { ComputeBudgetProgram } from "@solana/web3.js";
 
 const program = anchor.workspace.aggregator as Program<Aggregator>;
 
-describe("adapter – lifinity", () => {
+describe("adapter - lifinity", () => {
   it("single leg executes", async () => {
     const { ata } = await setupTokenAccounts();
     const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 });

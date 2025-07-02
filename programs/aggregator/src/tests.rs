@@ -35,4 +35,17 @@ mod tests {
         let res = adapter::dispatch(&leg, &[]).unwrap();
         assert_eq!(res.0, 100);
     }
-}
+
+    #[test]
+    fn route_two_leg_no_fee() {
+        let mut program = anchor_lang::prelude::ProgramTest::default();
+        // Not creating real accounts; we invoke route directly.
+
+        let ctx = RouteAccounts {
+            user_authority: anchor_lang::prelude::Signer::try_from(&anchor_lang::prelude::Pubkey::default()).unwrap(),
+            user_source: unsafe { std::mem::zeroed() },
+            user_destination: unsafe { std::mem::zeroed() },
+            fee_vault: unsafe { std::mem::zeroed() },
+            token_program: anchor_lang::prelude::Program::<Token>::try_from(anchor_lang::prelude::Pubkey::default()).unwrap(),
+            compute_budget: anchor_lang::prelude::AccountInfo::default(),
+        };

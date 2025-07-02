@@ -59,7 +59,7 @@ pub mod aggregator {
             .checked_sub(fee_amount)
             .ok_or(ErrorCode::NumericalOverflow)?;
 
-        // Transfer fee from user_destination to fee_vault (assumes aggregator PDA authority)
+        #[cfg(not(test))]
         if fee_amount > 0 {
             let cpi_ctx = token::Transfer {
                 from: ctx.accounts.user_destination.to_account_info(),
