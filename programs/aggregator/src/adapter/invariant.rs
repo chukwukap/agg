@@ -4,7 +4,7 @@ use anchor_lang::solana_program::{instruction::Instruction, program};
 use crate::{error::AggregatorError, SwapLeg};
 
 /// TODO: replace with actual Invariant CLMM program ID.
-pub const INVARIANT_PROGRAM_ID: Pubkey = pubkey!("iNvTySwapInvariantCLMMmmmmmmmmm111111111111");
+pub const INVARIANT_PROGRAM_ID: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
     let needed = leg.account_count as usize;
