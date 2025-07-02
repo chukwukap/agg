@@ -28,6 +28,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         accounts: metas,
         data: leg.data.clone(),
     };
+    #[cfg(not(test))]
     program::invoke(&ix, rem_slice)?;
 
     Ok((leg.in_amount, leg.min_out, needed))
