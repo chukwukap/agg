@@ -8,6 +8,5 @@ pub fn dispatch<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64
     match leg.dex_id {
         DexId::LifinityV2 => lifinity::invoke(leg, rem),
         DexId::OrcaWhirlpool => orca::invoke(leg, rem),
-        _ => Err(AggregatorError::UnknownDex.into()),
     }
 }

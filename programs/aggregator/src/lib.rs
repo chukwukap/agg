@@ -81,7 +81,7 @@ pub mod aggregator {
 pub struct RouteAccounts<'info> {
     // User
     #[account(signer)]
-    pub user_authority: AccountInfo<'info>,
+    pub user_authority: Signer<'info>,
 
     #[account(mut)]
     pub user_source: Account<'info, TokenAccount>,
