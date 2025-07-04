@@ -32,10 +32,12 @@ describe("e2e – lifinity adapter wiring", () => {
       minOut: new anchor.BN(90_000),
       accountCount: 3, // whirlpool + two token vaults
       data: Buffer.alloc(0),
+      inMint: mint,
+      outMint: mint,
     };
 
     await program.methods
-      .route([leg], new anchor.BN(110_000), new anchor.BN(80_000), 50) // 0.5% fee
+      .route([leg] as any, new anchor.BN(110_000), new anchor.BN(80_000), 50) // 0.5% fee
       .accounts({
         userAuthority: provider.wallet.publicKey,
         userSource: source,

@@ -20,4 +20,6 @@ pub enum AggregatorError {
     Unauthorized,
     #[msg("Mint continuity mismatch between swap legs or accounts")]
     MintMismatch,
+    #[msg("Route must contain at least one leg")]
+    NoLegs,
 }

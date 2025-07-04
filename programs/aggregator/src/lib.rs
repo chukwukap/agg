@@ -25,7 +25,6 @@ pub mod aggregator {
     ) -> Result<()> {
         let mut rem_accs = ctx.remaining_accounts;
         let mut spent_total: u64 = 0;
-        let mut out_amount: u64 = 0;
 
         // Governance config
         let cfg = &ctx.accounts.config;
@@ -47,6 +46,12 @@ pub mod aggregator {
             );
         }
 
+        // Must have at least one leg
+        require!(legs.len() > 0, AggregatorError::NoLegs);
+
+        // Record pre-swap destination balance to compute real output later
+        let pre_dest_balance = ctx.accounts.user_destination.amount;
+
         let mut prev_out_mint: Option<Pubkey> = None;
 
         for (i, leg) in legs.iter().enumerate() {
@@ -60,24 +65,39 @@ pub mod aggregator {
             spent_total = spent_total
                 .checked_add(spent)
                 .ok_or(ErrorCode::NumericalOverflow)?;
-            out_amount = received;
+            // After updating spent_total each iteration enforce user_max_in bound
+            require!(
+                spent_total <= user_max_in,
+                AggregatorError::TooManyTokensSpent
+            );
+            let _ = received; // adapter-reported output ignored for security
             require!(
                 consumed <= rem_accs.len(),
                 AggregatorError::RemainingAccountsMismatch
             );
             rem_accs = &rem_accs[consumed..];
 
-            // For legs after first, make sure the previous output mint equals current input expected (handled above)
-            if i == 0 {
-                require!(
-                    spent_total <= user_max_in,
-                    AggregatorError::TooManyTokensSpent
-                );
-            }
-
             // Update prev_out_mint for next iteration
             prev_out_mint = Some(leg.out_mint);
         }
+
+        // Reload destination to fetch post-swap balance
+        ctx.accounts.user_destination.reload()?;
+        let post_dest_balance = ctx.accounts.user_destination.amount;
+        let delta_out = post_dest_balance
+            .checked_sub(pre_dest_balance)
+            .ok_or(ErrorCode::NumericalOverflow)?;
+
+        // Use real delta for slippage and fee
+        require!(delta_out >= user_min_out, AggregatorError::SlippageExceeded);
+
+        // Fee based on actual output
+        let fee_amount: u64 = ((delta_out as u128 * cfg.fee_bps as u128) / 10_000u128)
+            .try_into()
+            .map_err(|_| ErrorCode::NumericalOverflow)?;
+        let _user_receive = delta_out
+            .checked_sub(fee_amount)
+            .ok_or(ErrorCode::NumericalOverflow)?;
 
         // Ensure final out mint matches user_destination mint if any legs executed
         if let Some(final_mint) = prev_out_mint {
@@ -87,11 +107,6 @@ pub mod aggregator {
                 AggregatorError::MintMismatch
             );
         }
-
-        require!(
-            out_amount >= user_min_out,
-            AggregatorError::SlippageExceeded
-        );
 
         // Ensure fee vault mint matches the final output mint to prevent griefing.
         require_keys_eq!(
@@ -105,14 +120,6 @@ pub mod aggregator {
             cfg.fee_vault,
             AggregatorError::FeeVaultMintMismatch
         );
-
-        // Fee: proportion of out_amount
-        let fee_amount: u64 = ((out_amount as u128 * cfg.fee_bps as u128) / 10_000u128)
-            .try_into()
-            .map_err(|_| ErrorCode::NumericalOverflow)?;
-        let _user_receive = out_amount
-            .checked_sub(fee_amount)
-            .ok_or(ErrorCode::NumericalOverflow)?;
 
         #[cfg(not(test))]
         if fee_amount > 0 {

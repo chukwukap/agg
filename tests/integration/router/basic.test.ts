@@ -6,47 +6,32 @@ import { ComputeBudgetProgram } from "@solana/web3.js";
 
 const program = anchor.workspace.aggregator as Program<Aggregator>;
 
-describe("router::route - happy-path (no legs)", () => {
-  it("routes zero legs and returns ok", async () => {
-    const { ata } = await setupTokenAccounts();
-
-    // Fee vault can be the same ATA for this dummy test
-    const feeVault = ata;
-
-    // Build compute budget ix (as SDK would)
-    const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 });
-
-    await program.methods
-      .route([], new anchor.BN(0), new anchor.BN(0), 0)
-      .accounts({
-        userAuthority: provider.wallet.publicKey,
-        userSource: ata,
-        userDestination: ata,
-        feeVault,
-        computeBudget: ComputeBudgetProgram.programId,
-      })
-      .preInstructions([cuIx])
-      .rpc();
-  });
-});
-
 describe("router::route - two-leg path", () => {
   it("routes two dummy legs", async () => {
-    const { ata } = await setupTokenAccounts();
+    const { ata, mint } = await setupTokenAccounts();
     const feeVault = ata;
     const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 });
 
-    const legStruct = (variant: "lifinityV2" | "orcaWhirlpool") => ({
+    const legStruct = (
+      variant: "lifinityV2" | "orcaWhirlpool",
+      inMint: anchor.web3.PublicKey,
+      outMint: anchor.web3.PublicKey
+    ) => ({
       dexId: { [variant]: {} } as any,
       inAmount: new anchor.BN(100),
       minOut: new anchor.BN(90),
       accountCount: 0,
       data: Buffer.alloc(0),
+      inMint,
+      outMint,
     });
 
     await program.methods
       .route(
-        [legStruct("lifinityV2"), legStruct("orcaWhirlpool")],
+        [
+          legStruct("lifinityV2", mint, mint),
+          legStruct("orcaWhirlpool", mint, mint),
+        ] as any,
         new anchor.BN(100),
         new anchor.BN(80),
         0
