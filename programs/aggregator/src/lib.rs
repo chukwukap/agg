@@ -24,7 +24,9 @@ pub mod aggregator {
         fee_bps: u16,
     ) -> Result<()> {
         let mut rem_accs = ctx.remaining_accounts;
-        let mut spent_total: u64 = 0;
+        // Track balances pre-swap for accurate spend/out calculations
+        let pre_src_balance = ctx.accounts.user_source.amount;
+        let pre_dest_balance = ctx.accounts.user_destination.amount;
 
         // Governance config
         let cfg = &ctx.accounts.config;
@@ -49,28 +51,16 @@ pub mod aggregator {
         // Must have at least one leg
         require!(legs.len() > 0, AggregatorError::NoLegs);
 
-        // Record pre-swap destination balance to compute real output later
-        let pre_dest_balance = ctx.accounts.user_destination.amount;
-
         let mut prev_out_mint: Option<Pubkey> = None;
 
-        for (i, leg) in legs.iter().enumerate() {
+        for (_i, leg) in legs.iter().enumerate() {
             // Mint continuity check
             if let Some(prev) = prev_out_mint {
                 require_keys_eq!(leg.in_mint, prev, AggregatorError::MintMismatch);
             }
 
-            // Each adapter will consume some of the remaining accounts slice
-            let (spent, received, consumed) = adapter::dispatch(leg, rem_accs)?;
-            spent_total = spent_total
-                .checked_add(spent)
-                .ok_or(ErrorCode::NumericalOverflow)?;
-            // After updating spent_total each iteration enforce user_max_in bound
-            require!(
-                spent_total <= user_max_in,
-                AggregatorError::TooManyTokensSpent
-            );
-            let _ = received; // adapter-reported output ignored for security
+            // Each adapter will consume some of the remaining accounts slice; we ignore any reported amounts for security.
+            let (_spent_hint, _received_hint, consumed) = adapter::dispatch(leg, rem_accs)?;
             require!(
                 consumed <= rem_accs.len(),
                 AggregatorError::RemainingAccountsMismatch
@@ -84,6 +74,16 @@ pub mod aggregator {
         // Reload destination to fetch post-swap balance
         ctx.accounts.user_destination.reload()?;
         let post_dest_balance = ctx.accounts.user_destination.amount;
+        // Reload source to compute how many tokens were actually spent
+        ctx.accounts.user_source.reload()?;
+        let post_src_balance = ctx.accounts.user_source.amount;
+        let delta_spent = pre_src_balance
+            .checked_sub(post_src_balance)
+            .ok_or(ErrorCode::NumericalOverflow)?;
+        require!(
+            delta_spent <= user_max_in,
+            AggregatorError::TooManyTokensSpent
+        );
         let delta_out = post_dest_balance
             .checked_sub(pre_dest_balance)
             .ok_or(ErrorCode::NumericalOverflow)?;
