@@ -14,4 +14,10 @@ pub enum AggregatorError {
     FeeVaultMintMismatch,
     #[msg("First remaining account owner mismatch (expected program id)")]
     InvalidProgramId,
+    #[msg("Protocol is paused")]
+    Paused,
+    #[msg("Unauthorized: admin signature required")]
+    Unauthorized,
+    #[msg("Mint continuity mismatch between swap legs or accounts")]
+    MintMismatch,
 }
