@@ -2,7 +2,10 @@
   "license": "ISC",
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
-    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
+    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
+    "validator": "bash scripts/start-validator.sh | cat",
+    "test:ts": "ts-mocha -p tsconfig.json tests/**/*.test.ts",
+    "test": "pnpm validator & PID=$! && sleep 6 && pnpm test:ts && kill $PID"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1"

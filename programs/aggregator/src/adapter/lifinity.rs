@@ -38,7 +38,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         data: leg.data.clone(),
     };
 
-    #[cfg(not(test))]
+    #[cfg(feature = "e2e")]
     program::invoke(&ix, rem_slice)?;
 
     // TODO: If the AMM exposes post-swap amounts, read them. For now, return leg.min_out as approximation.
