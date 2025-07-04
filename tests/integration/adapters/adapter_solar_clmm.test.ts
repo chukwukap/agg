@@ -1,26 +1,26 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { Aggregator } from "../target/types/aggregator";
-import { setupTokenAccounts, provider } from "./utils";
+import { Aggregator } from "../../../target/types/aggregator";
+import { setupTokenAccounts, provider } from "../../utils";
 import { ComputeBudgetProgram } from "@solana/web3.js";
 
 const program = anchor.workspace.aggregator as Program<Aggregator>;
 
-describe("adapter - solar_cp", () => {
+describe("adapter - solar_clmm", () => {
   it("single leg executes", async () => {
     const { ata } = await setupTokenAccounts();
     const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 });
 
     const leg = {
-      dexId: { solarCp: {} } as any,
-      inAmount: new anchor.BN(300),
-      minOut: new anchor.BN(270),
+      dexId: { solarClmm: {} } as any,
+      inAmount: new anchor.BN(400),
+      minOut: new anchor.BN(350),
       accountCount: 0,
       data: Buffer.alloc(0),
     };
 
     await program.methods
-      .route([leg], new anchor.BN(300), new anchor.BN(250), 0)
+      .route([leg], new anchor.BN(400), new anchor.BN(320), 0)
       .accounts({
         userAuthority: provider.wallet.publicKey,
         userSource: ata,

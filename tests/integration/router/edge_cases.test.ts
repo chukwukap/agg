@@ -1,10 +1,12 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { Aggregator } from "../target/types/aggregator";
-import { setupTokenAccounts, provider } from "./utils";
+import { Aggregator } from "../../../target/types/aggregator";
+import { setupTokenAccounts, provider } from "../../utils";
 import { ComputeBudgetProgram } from "@solana/web3.js";
 
 const program = anchor.workspace.aggregator as Program<Aggregator>;
+
+// Original content moved from tests/edge_cases.test.ts below
 
 describe("router edge cases", () => {
   /**
@@ -29,7 +31,7 @@ describe("router edge cases", () => {
       throw new Error(
         "tx should have failed due to SlippageExceeded on 0-leg route"
       );
-    } catch (err) {
+    } catch (_err) {
       console.log("0-leg slippage guard test passed – tx failed");
     }
   });
@@ -65,7 +67,7 @@ describe("router edge cases", () => {
       throw new Error(
         "tx should have failed due to NumericalOverflow from excessive fee"
       );
-    } catch (err) {
+    } catch (_err) {
       console.log("overflow guard test passed – tx failed");
     }
   });
@@ -125,7 +127,7 @@ describe("router edge cases", () => {
         .preInstructions([cuIx])
         .rpc();
       throw new Error("tx should have failed due to TooManyTokensSpent");
-    } catch (err) {
+    } catch (_err) {
       console.log("spent guard test passed – tx failed");
     }
   });
@@ -155,7 +157,7 @@ describe("router edge cases", () => {
         .preInstructions([cuIx])
         .rpc();
       throw new Error("tx should have failed due to RemainingAccountsMismatch");
-    } catch (err) {
+    } catch (_err) {
       console.log("remaining account mismatch test passed – tx failed");
     }
   });

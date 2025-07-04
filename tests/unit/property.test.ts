@@ -1,8 +1,8 @@
 import * as fc from "fast-check";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { Aggregator } from "../target/types/aggregator";
-import { setupTokenAccounts, provider } from "./utils";
+import { Aggregator } from "../../target/types/aggregator";
+import { setupTokenAccounts, provider } from "../utils";
 import { ComputeBudgetProgram, PublicKey } from "@solana/web3.js";
 
 const program = anchor.workspace.aggregator as Program<Aggregator>;

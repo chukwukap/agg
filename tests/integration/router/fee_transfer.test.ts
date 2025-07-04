@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { Aggregator } from "../target/types/aggregator";
-import { setupTokenAccounts, provider } from "./utils";
+import { Aggregator } from "../../../target/types/aggregator";
+import { setupTokenAccounts, provider } from "../../utils";
 import {
   createMint,
   getOrCreateAssociatedTokenAccount,
