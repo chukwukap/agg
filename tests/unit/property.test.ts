@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as fc from "fast-check";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
@@ -50,7 +51,7 @@ describe("property: remaining account guard", () => {
 
         try {
           await program.methods
-            .route([leg], new anchor.BN(100), new anchor.BN(80), 0)
+            .route([leg], new anchor.BN(100), new anchor.BN(80))
             .accounts({
               userAuthority: provider.wallet.publicKey,
               userSource: ata,

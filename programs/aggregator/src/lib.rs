@@ -21,7 +21,6 @@ pub mod aggregator {
         legs: Vec<SwapLeg>,
         user_max_in: u64,
         user_min_out: u64,
-        fee_bps: u16,
     ) -> Result<()> {
         let mut rem_accs = ctx.remaining_accounts;
         // Track balances pre-swap for accurate spend/out calculations
@@ -33,11 +32,6 @@ pub mod aggregator {
 
         // Protocol paused?
         require!(!cfg.paused, AggregatorError::Paused);
-        // Caller-supplied fee_bps must match on-chain config to avoid mismatch
-        require!(
-            fee_bps == cfg.fee_bps,
-            AggregatorError::FeeVaultMintMismatch
-        );
 
         // Ensure first leg in_mint matches user's source token
         if let Some(first_leg) = legs.first() {

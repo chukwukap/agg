@@ -3,7 +3,7 @@
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-    "validator": "solana-test-validator --clone LfacfEjtujQTWBXZVzgkiPBw7Mt4guHSsmAi7y3cycL --clone whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc --clone sooGfQwJ6enHfLTPfasFZtFR7DgobkJD77maDNEqGkD --clone CLsiWisG9Ek7dFgD8ENYtxLBbMEVxB64M3wD4f2XuZSn --clone iNvTyprs4TX8m6UeUEkeqDFjAL9zRCRWcexK9Sd4WEU --url https://eclipse.helius-rpc.com --reset | cat",
+    "validator": "solana-test-validator --clone LfacfEjtujQTWBXZVzgkiPBw7Mt4guHSsmAi7y3cycL --clone whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc --clone sooGfQwJ6enHfLTPfasFZtFR7DgobkJD77maDNEqGkD --clone CLsiWisG9Ek7dFgD8ENYtxLBbMEVxB64M3wD4f2XuZSn --clone iNvTyprs4TX8m6UeUEkeqDFjAL9zRCRWcexK9Sd4WEU --url https://eclipse.helius-rpc.com --reset",
     "test:ts": "ts-mocha -p tsconfig.json tests/**/*.test.ts",
     "test": "pnpm validator & PID=$! && sleep 6 && pnpm test:ts && kill $PID"
   },
