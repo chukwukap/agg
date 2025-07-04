@@ -6,7 +6,7 @@ use anchor_spl::token::ID as SPL_TOKEN_ID;
 use crate::{error::AggregatorError, SwapLeg};
 
 /// TODO: replace with real Solar CLMM program ID.
-pub const SOLAR_CLMM_PROGRAM_ID: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+pub const SOLAR_CLMM_PROGRAM_ID: Pubkey = pubkey!("CLsiWisG9Ek7dFgD8ENYtxLBbMEVxB64M3wD4f2XuZSn");
 
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
     let needed = leg.account_count as usize;

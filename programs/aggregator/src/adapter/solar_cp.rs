@@ -6,7 +6,7 @@ use anchor_spl::token::ID as SPL_TOKEN_ID;
 use crate::{error::AggregatorError, SwapLeg};
 
 /// TODO: replace with real on-chain program id once confirmed.
-pub const SOLAR_CP_PROGRAM_ID: Pubkey = pubkey!("sooGfSeXGtkLCPAMMpqkViwXxPxq8np5xpoEGoEsXXL");
+pub const SOLAR_CP_PROGRAM_ID: Pubkey = pubkey!("sooGfQwJ6enHfLTPfasFZtFR7DgobkJD77maDNEqGkD");
 
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
     let needed = leg.account_count as usize;
