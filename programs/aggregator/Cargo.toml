@@ -24,3 +24,7 @@ anchor-debug = []
 anchor-lang = "0.31.1"
 anchor-spl = "0.31.1"
 bytemuck = { version = "1.14", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1.4"
+rand = "0.8"

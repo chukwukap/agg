@@ -6,7 +6,7 @@ pub mod error;
 
 use error::AggregatorError;
 
-declare_id!("9L6nUupwLAwSGPGQPmbGwGAd7S27nauTBCep22XF3RCT");
+declare_id!("81VEHHWGikHo5wkBAPRZQUJs5LY5Yg5zrooifw27PbXt");
 
 #[program]
 pub mod aggregator {
