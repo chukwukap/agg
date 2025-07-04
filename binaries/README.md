@@ -17,7 +17,7 @@ You can **clone** these programs directly from mainnet into a temporary
 ledger and copy the resulting ELF files:
 
 ```bash
-solana program dump whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc lifinity_v2.so --url mainnet-beta
+solana program dump whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc orca_whirlpool.so --url mainnet-beta
 # repeat for each program id
 ```
 
