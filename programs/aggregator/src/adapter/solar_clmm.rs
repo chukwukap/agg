@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
+use anchor_lang::system_program;
+use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
 
@@ -18,6 +20,16 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     }
 
     let rem_slice = &rem[..needed];
+
+    // Whitelist owner validation
+    for ai in rem_slice {
+        let owner = *ai.owner;
+        require!(
+            owner == SOLAR_CLMM_PROGRAM_ID || owner == SPL_TOKEN_ID || owner == system_program::ID,
+            AggregatorError::InvalidProgramId
+        );
+    }
+
     let metas: Vec<_> = rem_slice
         .iter()
         .map(|ai| anchor_lang::solana_program::instruction::AccountMeta {
@@ -26,12 +38,6 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
             is_writable: ai.is_writable,
         })
         .collect();
-
-    require_keys_eq!(
-        *rem_slice[0].owner,
-        SOLAR_CLMM_PROGRAM_ID,
-        AggregatorError::InvalidProgramId
-    );
 
     let ix = Instruction {
         program_id: SOLAR_CLMM_PROGRAM_ID,
