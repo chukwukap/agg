@@ -40,6 +40,17 @@ const ALL_DEXES: &[DexId] = &[
     DexId::Invariant,
 ];
 
+/// Creates a **zeroed** `AccountInfo` suitable only for unit testing where the
+/// value is never dereferenced.  This avoids having to spin up real account
+/// structs for every property-test case.
+fn dummy_account_info<'info>() -> AccountInfo<'info> {
+    // SAFETY: We only pass the resulting `AccountInfo` by reference to adapters
+    // that will *not* dereference the data under `#[cfg(test)]` because the
+    // CPI invocation itself is skipped with `#[cfg(not(test))]`.  Therefore it
+    // is safe to provide an all-zeroed struct.
+    unsafe { std::mem::zeroed() }
+}
+
 // ------------- Basic happy-path tests ------------- //
 
 #[test]
@@ -58,7 +69,7 @@ fn adapter_happy_path_returns_expected_triplet() {
 fn adapter_errors_on_insufficient_remaining_accounts() {
     // Provide a leg that claims it needs 2 accounts but pass in only 1.
     let leg = dummy_leg(DexId::LifinityV2, 100, 90, 2);
-    let dummy_account = AccountInfo::default();
+    let dummy_account = dummy_account_info();
     let err = adapter::lifinity::invoke(&leg, &[dummy_account]).unwrap_err();
     // The error should map to our `RemainingAccountsMismatch` variant.
     match err {
@@ -82,7 +93,7 @@ proptest! {
     ) {
         let leg = dummy_leg(DexId::SolarCp, in_amount, min_out, acc_count);
         // Build a vector with `acc_count` dummy `AccountInfo`s.
-        let rem: Vec<AccountInfo> = (0..acc_count).map(|_| AccountInfo::default()).collect();
+        let rem: Vec<AccountInfo> = (0..acc_count).map(|_| dummy_account_info()).collect();
         let (_spent, _recv, consumed) = adapter::solar_cp::invoke(&leg, &rem).unwrap();
         prop_assert_eq!(consumed as u8, acc_count);
     }
