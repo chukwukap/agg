@@ -6,6 +6,15 @@ import {
 } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 
+// If tests launched via `pnpm test` we run a local validator on 8899.
+if (!process.env.ANCHOR_PROVIDER_URL) {
+  process.env.ANCHOR_PROVIDER_URL = "http://localhost:8899";
+}
+if (!process.env.ANCHOR_WALLET) {
+  // AnchorProvider.env() requires a keypair path; use default ~/.config/solana/id.json
+  process.env.ANCHOR_WALLET = `${process.env.HOME}/.config/solana/id.json`;
+}
+
 export const provider = anchor.AnchorProvider.env();
 anchor.setProvider(provider);
 

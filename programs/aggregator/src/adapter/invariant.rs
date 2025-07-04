@@ -27,6 +27,12 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         })
         .collect();
 
+    require_keys_eq!(
+        *rem_slice[0].owner,
+        INVARIANT_PROGRAM_ID,
+        AggregatorError::InvalidProgramId
+    );
+
     let ix = Instruction {
         program_id: INVARIANT_PROGRAM_ID,
         accounts: metas,

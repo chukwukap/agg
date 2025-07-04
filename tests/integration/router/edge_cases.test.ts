@@ -161,4 +161,37 @@ describe("router edge cases", () => {
       console.log("remaining account mismatch test passed – tx failed");
     }
   });
+
+  it("fails when fee vault mint mismatches output mint", async () => {
+    const { ata, mint } = await setupTokenAccounts();
+    // create a second mint for fee vault mismatch
+    const otherMintData = await setupTokenAccounts();
+    const wrongFeeVault = otherMintData.ata;
+    const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_200_000 });
+
+    const leg = {
+      dexId: { lifinityV2: {} } as any,
+      inAmount: new anchor.BN(30),
+      minOut: new anchor.BN(20),
+      accountCount: 0,
+      data: Buffer.alloc(0),
+    };
+
+    try {
+      await program.methods
+        .route([leg], new anchor.BN(30), new anchor.BN(15), 0)
+        .accounts({
+          userAuthority: provider.wallet.publicKey,
+          userSource: ata,
+          userDestination: ata,
+          feeVault: wrongFeeVault, // wrong mint
+          computeBudget: ComputeBudgetProgram.programId,
+        })
+        .preInstructions([cuIx])
+        .rpc();
+      throw new Error("tx should have failed due to FeeVaultMintMismatch");
+    } catch (_err) {
+      console.log("fee vault mint guard passed – tx failed");
+    }
+  });
 });

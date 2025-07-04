@@ -51,6 +51,13 @@ pub mod aggregator {
             AggregatorError::SlippageExceeded
         );
 
+        // Ensure fee vault mint matches the final output mint to prevent griefing.
+        require_keys_eq!(
+            ctx.accounts.fee_vault.mint,
+            ctx.accounts.user_destination.mint,
+            AggregatorError::FeeVaultMintMismatch
+        );
+
         // Fee: proportion of out_amount
         let fee_amount: u64 = ((out_amount as u128 * fee_bps as u128) / 10_000u128)
             .try_into()

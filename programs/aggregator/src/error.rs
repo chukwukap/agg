@@ -10,4 +10,8 @@ pub enum AggregatorError {
     UnknownDex,
     #[msg("Insufficient remaining accounts for adapter")]
     RemainingAccountsMismatch,
+    #[msg("Fee vault mint does not match output mint")]
+    FeeVaultMintMismatch,
+    #[msg("First remaining account owner mismatch (expected program id)")]
+    InvalidProgramId,
 }

@@ -20,6 +20,12 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
 
     let rem_slice = &rem[..needed];
 
+    require_keys_eq!(
+        *rem_slice[0].owner,
+        ORCA_WHIRLPOOL_PROGRAM_ID,
+        AggregatorError::InvalidProgramId
+    );
+
     let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = rem_slice
         .iter()
         .map(|ai| anchor_lang::solana_program::instruction::AccountMeta {
