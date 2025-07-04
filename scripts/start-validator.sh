@@ -60,26 +60,34 @@ add_program "$AGG_ID" "$AGG_SO"
 # 2. Optionally clone real pool PDAs from mainnet for E2E tests.
 #    Provide env vars or edit constants below.
 # ------------------------------------------------------------------
-# Example public SOL/USDC Lifinity V2 whirlpool (mainnet):
-LIFI_WHIRL="D36zYmhG1CEV4VpWwfvX2VNfzQExgkt1PyfuzMdudH5K"
-LIFI_VA_TOKEN_A="7k3bDHK5mVsQt1zArhcXd1LSeX776BF3nfUSKCDrkguP"  # SOL vault
-LIFI_VA_TOKEN_B="77DpD6PEw24kTx5cHGNyEJD7BqXc9EwP6KDAdAm8YGtS"  # USDC vault
 
-# Orca Whirlpool SOL/USDC pool (placeholder address):
-ORCA_WHIRL="Gy1jCt3VkHxVkkpFmSPrbrWCYpgwRvDDDeWGPA7eVJB5"
+# Skip cloning if SKIP_CLONES env var is set (useful when only
+# testing with programs available locally, e.g. Whirlpool).
+if [[ -z "${SKIP_CLONES:-}" ]]; then
+  # Example public SOL/USDC Lifinity V2 whirlpool (mainnet):
+  LIFI_WHIRL="D36zYmhG1CEV4VpWwfvX2VNfzQExgkt1PyfuzMdudH5K"
+  LIFI_VA_TOKEN_A="7k3bDHK5mVsQt1zArhcXd1LSeX776BF3nfUSKCDrkguP"  # SOL vault
+  LIFI_VA_TOKEN_B="77DpD6PEw24kTx5cHGNyEJD7BqXc9EwP6KDAdAm8YGtS"  # USDC vault
 
-clone_account() {
-  local acc=$1
-  ARGS+=("--clone" "$acc")
-}
+  # Orca Whirlpool SOL/USDC (tick_spacing = 8) – verified main-net PDA
+  # See whirlpool-essentials docs for reference.
+  ORCA_WHIRL="7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm"
 
-clone_account "$LIFI_WHIRL"
-clone_account "$LIFI_VA_TOKEN_A"
-clone_account "$LIFI_VA_TOKEN_B"
-clone_account "$ORCA_WHIRL"
+  clone_account() {
+    local acc=$1
+    ARGS+=("--clone" "$acc")
+  }
 
-# add url once
-ARGS+=("--url" "mainnet-beta")
+  clone_account "$LIFI_WHIRL"
+  clone_account "$LIFI_VA_TOKEN_A"
+  clone_account "$LIFI_VA_TOKEN_B"
+  clone_account "$ORCA_WHIRL"
+
+  # add url once
+  ARGS+=("--url" "mainnet-beta")
+else
+  echo "[info] SKIP_CLONES set – skipping remote account clones" >&2
+fi
 
 # ensure we pass --url once if at least one clone requested
 HAS_CLONES=1
