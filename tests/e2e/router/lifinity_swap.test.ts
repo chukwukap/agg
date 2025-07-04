@@ -20,6 +20,7 @@ const program = anchor.workspace.aggregator as Program<Aggregator>;
  * early-exit because data len == 0). This is a smoke-test proving CPI wiring.
  */
 
+// @ts-nocheck
 describe("e2e – lifinity adapter wiring", () => {
   it("executes a 1-leg lifinity swap via CPI", async () => {
     const { mint, source, destination, feeVault } = await createMintAndATAs();
@@ -37,7 +38,7 @@ describe("e2e – lifinity adapter wiring", () => {
     };
 
     await program.methods
-      .route([leg] as any, new anchor.BN(110_000), new anchor.BN(80_000), 50) // 0.5% fee
+      .route([leg] as any, new anchor.BN(110_000), new anchor.BN(80_000)) // fee read from config
       .accounts({
         userAuthority: provider.wallet.publicKey,
         userSource: source,

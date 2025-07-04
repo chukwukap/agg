@@ -62,12 +62,18 @@ describe("integration – protocol fee is transferred", () => {
       data: Buffer.alloc(0),
     };
 
-    const FEE_BPS = 200; // 2%
-
     const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 });
 
+    // The route method expects each leg to include inMint and outMint fields.
+    // We add these fields to the leg object to match the expected type signature.
+    const legWithMints = {
+      ...leg,
+      inMint: mint,
+      outMint: mint,
+    };
+
     await program.methods
-      .route([leg], new anchor.BN(900_000), new anchor.BN(400_000), FEE_BPS)
+      .route([legWithMints], new anchor.BN(900_000), new anchor.BN(400_000))
       .accounts({
         userAuthority: provider.wallet.publicKey,
         userSource: sourceAta,
@@ -84,7 +90,7 @@ describe("integration – protocol fee is transferred", () => {
     const vaultAfter = (await getAccount(provider.connection, feeVaultAta))
       .amount;
 
-    const expectedFee = (BigInt(500_000) * BigInt(FEE_BPS)) / 10_000n; // 10,000 bps = 100%
+    const expectedFee = (BigInt(500_000) * BigInt(200)) / 10_000n; // 2%
 
     if (vaultAfter - vaultBefore !== expectedFee) {
       throw new Error(

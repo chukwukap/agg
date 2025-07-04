@@ -145,7 +145,6 @@ pub mod aggregator {
             cfg.fee_vault,
             AggregatorError::FeeVaultMintMismatch
         );
-
         #[cfg(not(test))]
         if fee_amount > 0 {
             let cpi_ctx = token::Transfer {

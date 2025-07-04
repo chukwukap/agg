@@ -39,7 +39,7 @@ describe("property: remaining account guard", () => {
   it("tx fails if provided accounts < accountCount", async () => {
     await fc.assert(
       fc.asyncProperty(fc.integer({ min: 1, max: 4 }), async (accCount) => {
-        const { ata } = await setupTokenAccounts();
+        const { ata, mint } = await setupTokenAccounts();
         // leg expects accCount accounts, we supply none.
         const leg = {
           dexId: { lifinityV2: {} } as any,
@@ -47,6 +47,8 @@ describe("property: remaining account guard", () => {
           minOut: new anchor.BN(90),
           accountCount: accCount,
           data: Buffer.alloc(0),
+          inMint: mint,
+          outMint: mint,
         };
 
         try {

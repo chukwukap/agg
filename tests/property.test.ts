@@ -48,9 +48,18 @@ describe("property: remaining account guard", () => {
           data: Buffer.alloc(0),
         };
 
+        // Prepare a leg with all required fields to match the program's expected type
+        // Use dummy PublicKeys for inMint and outMint as this is a negative test (accounts intentionally missing)
+        const dummyMint = PublicKey.unique();
+        const testLeg = {
+          ...leg,
+          inMint: dummyMint,
+          outMint: dummyMint,
+        };
+
         try {
           await program.methods
-            .route([leg], new anchor.BN(100), new anchor.BN(80), 0)
+            .route([testLeg], new anchor.BN(100), new anchor.BN(80))
             .accounts({
               userAuthority: provider.wallet.publicKey,
               userSource: ata,

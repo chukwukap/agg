@@ -60,14 +60,16 @@ describe("integration – protocol fee is transferred", () => {
       minOut: new anchor.BN(500_000),
       accountCount: 0,
       data: Buffer.alloc(0),
+      inMint: mint,
+      outMint: mint,
     };
 
-    const FEE_BPS = 200; // 2%
+    const FEE_BPS = 200; // 2% – matches on-chain config in tests
 
     const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 });
 
     await program.methods
-      .route([leg], new anchor.BN(900_000), new anchor.BN(400_000), FEE_BPS)
+      .route([leg], new anchor.BN(900_000), new anchor.BN(400_000))
       .accounts({
         userAuthority: provider.wallet.publicKey,
         userSource: sourceAta,

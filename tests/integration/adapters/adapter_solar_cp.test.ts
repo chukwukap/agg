@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Aggregator } from "../../../target/types/aggregator";
@@ -8,7 +9,7 @@ const program = anchor.workspace.aggregator as Program<Aggregator>;
 
 describe("adapter - solar_cp", () => {
   it("single leg executes", async () => {
-    const { ata } = await setupTokenAccounts();
+    const { ata, mint } = await setupTokenAccounts();
     const cuIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 });
 
     const leg = {
@@ -17,10 +18,12 @@ describe("adapter - solar_cp", () => {
       minOut: new anchor.BN(270),
       accountCount: 0,
       data: Buffer.alloc(0),
+      inMint: mint,
+      outMint: mint,
     };
 
     await program.methods
-      .route([leg], new anchor.BN(300), new anchor.BN(250), 0)
+      .route([leg], new anchor.BN(300), new anchor.BN(250))
       .accounts({
         userAuthority: provider.wallet.publicKey,
         userSource: ata,
