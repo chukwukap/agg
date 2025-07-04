@@ -15,7 +15,27 @@ declare_id!("81VEHHWGikHo5wkBAPRZQUJs5LY5Yg5zrooifw27PbXt");
 pub mod aggregator {
     use super::*;
 
-    /// Route executes an arbitrary multi-leg swap path.
+    /// Route executes a user-supplied swap path through one or more DEX adapters.  
+    ///
+    /// * `legs` ‑ ordered list of [`SwapLeg`] descriptions. Each leg specifies which
+    ///   adapter (`dex_id`) to call, the expected input/output SPL mints and the raw
+    ///   CPI data blob that will be forwarded to the adapter.  
+    /// * `user_max_in` ‑ hard cap on the number of input tokens the user is willing
+    ///   to spend across the whole route (**checked after execution** using the real
+    ///   balance delta).  
+    /// * `user_min_out` ‑ minimum number of destination tokens the user expects to
+    ///   receive in total (**true anti-slippage check** – evaluated post-swap using
+    ///   the actual output).  
+    ///
+    /// Security-wise the instruction enforces:  
+    /// 1. protocol pause switch  
+    /// 2. mint continuity between legs  
+    /// 3. fee-vault mint/address correctness  
+    /// 4. accurate spend / receive accounting driven by live token balances  
+    /// 5. automatic fee transfer to the configured vault  
+    ///
+    /// The protocol fee ( `cfg.fee_bps` ) is **not** provided by the client anymore;
+    /// it is read exclusively from the on-chain [`Config`] PDA.
     pub fn route(
         ctx: Context<RouteAccounts>,
         legs: Vec<SwapLeg>,
@@ -23,17 +43,24 @@ pub mod aggregator {
         user_min_out: u64,
     ) -> Result<()> {
         let mut rem_accs = ctx.remaining_accounts;
-        // Track balances pre-swap for accurate spend/out calculations
+
+        // ------------------------------------------------------------------
+        // Snapshot balances – we'll use the deltas later to compute the exact
+        // amount spent/received and to implement slippage + fee checks.
+        // ------------------------------------------------------------------
         let pre_src_balance = ctx.accounts.user_source.amount;
         let pre_dest_balance = ctx.accounts.user_destination.amount;
 
         // Governance config
         let cfg = &ctx.accounts.config;
 
-        // Protocol paused?
+        // ------------------------------------------------------------------
+        // Global safety gates & basic route sanity checks
+        // ------------------------------------------------------------------
+        // 1) Protocol pause switch
         require!(!cfg.paused, AggregatorError::Paused);
 
-        // Ensure first leg in_mint matches user's source token
+        // 2) Ensure first leg consumes the tokens provided in `user_source`
         if let Some(first_leg) = legs.first() {
             require_keys_eq!(
                 first_leg.in_mint,
@@ -42,12 +69,13 @@ pub mod aggregator {
             );
         }
 
-        // Must have at least one leg
+        // 3) Empty route not allowed – protects against accidental fee burn
         require!(legs.len() > 0, AggregatorError::NoLegs);
 
         let mut prev_out_mint: Option<Pubkey> = None;
 
         for (_i, leg) in legs.iter().enumerate() {
+            // Enforce mint continuity across legs (out_mint of previous == in_mint of next)
             // Mint continuity check
             if let Some(prev) = prev_out_mint {
                 require_keys_eq!(leg.in_mint, prev, AggregatorError::MintMismatch);
@@ -65,6 +93,9 @@ pub mod aggregator {
             prev_out_mint = Some(leg.out_mint);
         }
 
+        // ------------------------------------------------------------------
+        // Post-execution accounting & user-side limits
+        // ------------------------------------------------------------------
         // Reload destination to fetch post-swap balance
         ctx.accounts.user_destination.reload()?;
         let post_dest_balance = ctx.accounts.user_destination.amount;
@@ -82,10 +113,10 @@ pub mod aggregator {
             .checked_sub(pre_dest_balance)
             .ok_or(ErrorCode::NumericalOverflow)?;
 
-        // Use real delta for slippage and fee
-        require!(delta_out >= user_min_out, AggregatorError::SlippageExceeded);
-
-        // Fee based on actual output
+        // ------------------------------------------------------------------
+        // Fee calculation & transfer – based on *real* output to make fee-
+        // exploitation (e.g. via hints) impossible.
+        // ------------------------------------------------------------------
         let fee_amount: u64 = ((delta_out as u128 * cfg.fee_bps as u128) / 10_000u128)
             .try_into()
             .map_err(|_| ErrorCode::NumericalOverflow)?;

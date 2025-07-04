@@ -1,3 +1,32 @@
+//! Orca Whirlpool adapter
+//! ---------------------
+//! This module builds and invokes the Whirlpool `swap` instruction.  It is a *thin*
+//! wrapper whose responsibilities are:
+//!
+//! * Parse the [`SwapLeg`] metadata supplied by the router.
+//! * Perform basic safety checks (account slice length & owner whitelist).
+//! * Re-package the remaining accounts into [`AccountMeta`]s and forward the
+//!   raw instruction data (`leg.data`) to the on-chain Whirlpool program via
+//!   CPI.
+//! * Return `(spent, received, accounts_consumed)` so the router can advance
+//!   the `remaining_accounts` cursor.  **At present** we rely on the hints
+//!   encoded inside the leg, so `spent = in_amount` and `received = min_out`.
+//!   If/when Whirlpool exposes these values on-chain we can fetch the real
+//!   post-swap numbers here.
+//!
+//! The adapter is deliberately *stateless*: all authority / vault accounts are
+//! provided by the caller; the adapter never signs.
+//!
+//! ## Security barriers
+//!
+//! 1.  Owner whitelist ─ every account passed to the CPI must be owned by one
+//!     of: the Whirlpool program, the SPL-Token program, or the System program.
+//! 2.  Length check ─ prevents out-of-slice reads if the caller under-specifies
+//!     `leg.account_count`.
+//! 3.  **Test fast-path** ─ when compiled with `#[cfg(test)]` a zero-account leg
+//!     returns immediately so the unit tests don't need to construct real
+//!     Whirlpool accounts.
+
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
 use anchor_lang::system_program;
