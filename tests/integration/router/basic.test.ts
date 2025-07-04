@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Aggregator } from "../../../target/types/aggregator";
@@ -33,8 +34,7 @@ describe("router::route - two-leg path", () => {
           legStruct("orcaWhirlpool", mint, mint),
         ] as any,
         new anchor.BN(100),
-        new anchor.BN(80),
-        0
+        new anchor.BN(80)
       )
       .accounts({
         userAuthority: provider.wallet.publicKey,
