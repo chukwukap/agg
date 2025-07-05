@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
-use anchor_lang::system_program;
 use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
@@ -31,7 +30,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     for ai in rem_slice {
         let owner = *ai.owner;
         require!(
-            owner == LIFINITY_PROGRAM_ID || owner == SPL_TOKEN_ID || owner == system_program::ID,
+            owner == LIFINITY_PROGRAM_ID || owner == SPL_TOKEN_ID,
             AggregatorError::InvalidProgramId
         );
     }

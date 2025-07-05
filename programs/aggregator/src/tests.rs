@@ -28,6 +28,8 @@ fn dummy_leg(dex: DexId, in_amount: u64, min_out: u64, account_count: u8) -> Swa
         min_out,
         account_count,
         data: vec![],
+        in_mint: Pubkey::default(),
+        out_mint: Pubkey::default(),
     }
 }
 

@@ -1,11 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
-use anchor_lang::system_program;
 use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
 
-/// TODO: replace with actual Invariant CLMM program ID.
 pub const INVARIANT_PROGRAM_ID: Pubkey = pubkey!("iNvTyprs4TX8m6UeUEkeqDFjAL9zRCRWcexK9Sd4WEU");
 
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
@@ -25,7 +23,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     for ai in rem_slice {
         let owner = *ai.owner;
         require!(
-            owner == INVARIANT_PROGRAM_ID || owner == SPL_TOKEN_ID || owner == system_program::ID,
+            owner == INVARIANT_PROGRAM_ID || owner == SPL_TOKEN_ID,
             AggregatorError::InvalidProgramId
         );
     }

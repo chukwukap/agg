@@ -120,9 +120,17 @@ pub mod aggregator {
         let fee_amount: u64 = ((delta_out as u128 * cfg.fee_bps as u128) / 10_000u128)
             .try_into()
             .map_err(|_| ErrorCode::NumericalOverflow)?;
-        let _user_receive = delta_out
+
+        // Net amount that ends up in the user's destination account *after* fee deduction.
+        let user_receive = delta_out
             .checked_sub(fee_amount)
             .ok_or(ErrorCode::NumericalOverflow)?;
+
+        // Enforce the user-supplied minimum-out slippage guard using the **net** amount.
+        require!(
+            user_receive >= user_min_out,
+            AggregatorError::SlippageExceeded
+        );
 
         // Ensure final out mint matches user_destination mint if any legs executed
         if let Some(final_mint) = prev_out_mint {
@@ -145,6 +153,14 @@ pub mod aggregator {
             cfg.fee_vault,
             AggregatorError::FeeVaultMintMismatch
         );
+
+        // Extra safety: ensure the fee vault is owned by the configured admin.
+        require_keys_eq!(
+            ctx.accounts.fee_vault.owner,
+            cfg.admin,
+            AggregatorError::FeeVaultOwnerMismatch
+        );
+
         #[cfg(not(test))]
         if fee_amount > 0 {
             let cpi_ctx = token::Transfer {
@@ -163,6 +179,8 @@ pub mod aggregator {
     }
 
     pub fn init_config(ctx: Context<InitConfig>, fee_bps: u16) -> Result<()> {
+        // Sanity-check the requested fee before writing state.
+        require!(fee_bps <= 10_000, AggregatorError::InvalidFeeBps);
         let cfg = &mut ctx.accounts.config;
         cfg.admin = ctx.accounts.admin.key();
         cfg.fee_bps = fee_bps;
@@ -178,6 +196,9 @@ pub mod aggregator {
             ctx.accounts.admin.key() == cfg.admin,
             AggregatorError::Unauthorized
         );
+
+        // Validate new fee and vault before committing.
+        require!(fee_bps <= 10_000, AggregatorError::InvalidFeeBps);
         cfg.fee_bps = fee_bps;
         cfg.fee_vault = fee_vault;
         Ok(())

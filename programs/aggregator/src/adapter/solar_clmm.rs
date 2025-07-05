@@ -1,11 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
-use anchor_lang::system_program;
 use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
 
-/// TODO: replace with real Solar CLMM program ID.
 pub const SOLAR_CLMM_PROGRAM_ID: Pubkey = pubkey!("CLsiWisG9Ek7dFgD8ENYtxLBbMEVxB64M3wD4f2XuZSn");
 
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
@@ -26,7 +24,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     for ai in rem_slice {
         let owner = *ai.owner;
         require!(
-            owner == SOLAR_CLMM_PROGRAM_ID || owner == SPL_TOKEN_ID || owner == system_program::ID,
+            owner == SOLAR_CLMM_PROGRAM_ID || owner == SPL_TOKEN_ID,
             AggregatorError::InvalidProgramId
         );
     }

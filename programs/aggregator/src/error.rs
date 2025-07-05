@@ -22,4 +22,8 @@ pub enum AggregatorError {
     MintMismatch,
     #[msg("Route must contain at least one leg")]
     NoLegs,
+    #[msg("Fee vault owner does not match admin")]
+    FeeVaultOwnerMismatch,
+    #[msg("Invalid fee basis points (must be 0-10000)")]
+    InvalidFeeBps,
 }
