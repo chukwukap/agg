@@ -18,12 +18,6 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         AggregatorError::RemainingAccountsMismatch
     );
 
-    #[cfg(test)]
-    if needed == 0 {
-        // Fast path for unit tests that build stub legs with no remaining accounts
-        return Ok((leg.in_amount, leg.min_out, 0));
-    }
-
     let rem_slice = &rem[..needed];
 
     // Owner whitelist validation
@@ -52,6 +46,9 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
 
     program::invoke(&ix, rem_slice)?;
 
-    // TODO: If the AMM exposes post-swap amounts, read them. For now, return leg.min_out as approximation.
+    // At present the Lifinity swap instruction does not expose post-swap token
+    // balances to the CPI caller.  When a future program version provides
+    // those numbers we can surface them here instead of relying on the
+    // client-supplied `min_out` hint.
     Ok((leg.in_amount, leg.min_out, needed))
 }

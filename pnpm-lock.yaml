@@ -19,7 +19,7 @@ importers:
         specifier: ^5.1.0
         version: 5.2.0
       '@types/chai':
-        specifier: ^4.3.0
+        specifier: ^4.3.20
         version: 4.3.20
       '@types/mocha':
         specifier: ^9.0.0
@@ -28,8 +28,11 @@ importers:
         specifier: ^24.0.10
         version: 24.0.10
       chai:
-        specifier: ^4.3.4
+        specifier: ^4.5.0
         version: 4.5.0
+      dotenv:
+        specifier: ^17.0.1
+        version: 17.0.1
       fast-check:
         specifier: ^3.15.0
         version: 3.23.2
@@ -359,6 +362,10 @@ packages:
   diff@5.0.0:
     resolution: {integrity: sha512-/VTCrvm5Z0JGty/BWHljh+BAiw3IK+2j87NGMu8Nwc/f48WoDAC395uomO9ZD117ZOBaHmkX1oyLvkVM/aIT3w==}
     engines: {node: '>=0.3.1'}
+
+  dotenv@17.0.1:
+    resolution: {integrity: sha512-GLjkduuAL7IMJg/ZnOPm9AnWKJ82mSE2tzXLaJ/6hD6DhwGfZaXG77oB8qbReyiczNxnbxQKyh0OE5mXq0bAHA==}
+    engines: {node: '>=12'}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -1169,6 +1176,8 @@ snapshots:
   diff@3.5.0: {}
 
   diff@5.0.0: {}
+
+  dotenv@17.0.1: {}
 
   emoji-regex@8.0.0: {}
 

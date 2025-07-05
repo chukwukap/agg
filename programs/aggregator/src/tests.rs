@@ -101,6 +101,23 @@ proptest! {
     }
 }
 
+/// Property: for random vector of legs adapter cursor never overruns slice
+proptest! {
+    #[test]
+    fn prop_cursor_integrity(ref lens in proptest::collection::vec(0u8..5, 1..4)) {
+        use crate::DexId;
+        let total: usize = lens.iter().map(|v| *v as usize).sum();
+        let rem: Vec<AccountInfo> = (0..total).map(|_| dummy_account_info()).collect();
+        let mut offset=0;
+        for acc_count in lens {
+            let leg = SwapLeg{ dex_id:DexId::LifinityV2, in_amount:1, min_out:1, account_count:*acc_count, data:vec![], in_mint:Pubkey::default(), out_mint:Pubkey::default()};
+            let (_s,_r,consumed)=adapter::dispatch(&leg, &rem[offset..]).unwrap();
+            prop_assert_eq!(consumed as u8, *acc_count);
+            offset+=consumed;
+        }
+    }
+}
+
 // ------------- Fee maths sanity check ------------- //
 
 #[test]

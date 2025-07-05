@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use crate::state::Config;
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::System;
