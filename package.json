@@ -4,24 +4,28 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "validator": "solana-test-validator --clone LfacfEjtujQTWBXZVzgkiPBw7Mt4guHSsmAi7y3cycL --clone whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc --clone sooGfQwJ6enHfLTPfasFZtFR7DgobkJD77maDNEqGkD --clone CLsiWisG9Ek7dFgD8ENYtxLBbMEVxB64M3wD4f2XuZSn --clone iNvTyprs4TX8m6UeUEkeqDFjAL9zRCRWcexK9Sd4WEU --url https://eclipse.helius-rpc.com --reset",
-    "test:ts": "ts-mocha -p tsconfig.json tests/**/*.test.ts",
-    "test": "pnpm validator & PID=$! && sleep 6 && pnpm test:ts && kill $PID"
+    "test:ts": "ts-mocha -p tsconfig.json tests/**/*.test.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.31.1"
+    "@coral-xyz/anchor": "^0.31.1",
+    "chai-as-promised": "^8.0.1"
   },
   "devDependencies": {
     "@solana/spl-token": "^0.4.13",
     "@types/bn.js": "^5.1.0",
     "@types/chai": "^4.3.20",
-    "@types/mocha": "^9.0.0",
+    "@types/chai-as-promised": "^8.0.2",
+    "@types/expect": "^24.3.2",
+    "@types/mocha": "^9.1.1",
     "@types/node": "^24.0.10",
     "chai": "^4.5.0",
     "dotenv": "^17.0.1",
     "fast-check": "^3.15.0",
-    "mocha": "^9.0.3",
+    "mocha": "^9.2.2",
     "prettier": "^2.6.2",
-    "ts-mocha": "^10.0.0",
+    "ts-mocha": "^10.1.0",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3"
   }
 }

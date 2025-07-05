@@ -1,5 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
+import { Program, BN } from "@coral-xyz/anchor";
 import { Aggregator } from "../target/types/aggregator";
 import {
   buildDummyLeg,
@@ -7,60 +7,101 @@ import {
   setupTokenAccounts,
   provider,
 } from "./utils";
-import { ComputeBudgetProgram, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
+import { ComputeBudgetProgram, PublicKey } from "@solana/web3.js";
 
 /**
- * This test suite fuzzes the adapter owner whitelist logic for UmbraSwap.
- * Security: All error assertions are explicit and do not rely on Chai's .rejects.
+ * Security-focused fuzz test for adapter owner whitelisting.
+ * Ensures that only whitelisted program IDs are accepted for each DEX variant.
  */
 const program = anchor.workspace.aggregator as Program<Aggregator>;
 
-describe("fuzz: adapter owner whitelist", () => {
+/**
+ * Helper to build a valid Anchor enum for the dexId field.
+ * This ensures the enum is strictly typed for Anchor's IDL expectations.
+ */
+function dexIdEnum(
+  variant:
+    | "lifinityV2"
+    | "orcaWhirlpool"
+    | "solarCp"
+    | "solarClmm"
+    | "invariant"
+) {
+  // Each enum variant must be an object with only the variant key and an empty object as value,
+  // and all other variants must be explicitly set to undefined (never) for strict typing.
+  switch (variant) {
+    case "lifinityV2":
+      return { lifinityV2: {} } as {
+        lifinityV2: Record<string, never>;
+        orcaWhirlpool?: never;
+        solarCp?: never;
+        solarClmm?: never;
+        invariant?: never;
+      };
+    case "orcaWhirlpool":
+      return { orcaWhirlpool: {} } as {
+        lifinityV2?: never;
+        orcaWhirlpool: Record<string, never>;
+        solarCp?: never;
+        solarClmm?: never;
+        invariant?: never;
+      };
+    case "solarCp":
+      return { solarCp: {} } as {
+        lifinityV2?: never;
+        orcaWhirlpool?: never;
+        solarCp: Record<string, never>;
+        solarClmm?: never;
+        invariant?: never;
+      };
+    case "solarClmm":
+      return { solarClmm: {} } as {
+        lifinityV2?: never;
+        orcaWhirlpool?: never;
+        solarCp?: never;
+        solarClmm: Record<string, never>;
+        invariant?: never;
+      };
+    case "invariant":
+      return { invariant: {} } as {
+        lifinityV2?: never;
+        orcaWhirlpool?: never;
+        solarCp?: never;
+        solarClmm?: never;
+        invariant: Record<string, never>;
+      };
+    default:
+      throw new Error("Unknown DEX variant");
+  }
+}
+
+describe("fuzz: adapter owner whitelist", function () {
   let mint: PublicKey;
   let ata: PublicKey;
 
-  before(async () => {
+  before("setup token accounts", async function () {
     const res = await setupTokenAccounts();
     mint = res.mint;
     ata = res.ata;
     await ensureTestConfig(mint);
   });
 
-  // Helper to build a valid enum for dexId
-  function buildDexId(variant: string) {
-    // Each variant must be mutually exclusive for Anchor's enum
-    switch (variant) {
-      case "lifinityV2":
-        return { lifinityV2: {} };
-      case "orcaWhirlpool":
-        return { orcaWhirlpool: {} };
-      case "solarCp":
-        return { solarCp: {} };
-      case "solarClmm":
-        return { solarClmm: {} };
-      case "invariant":
-        return { invariant: {} };
-      default:
-        throw new Error("Unknown DEX variant");
-    }
-  }
-
-  // List of DEX adapter variants to test
-  const dexVariants = [
+  // List of DEX enum variant names as strings
+  const dexVariantNames = [
     "lifinityV2",
     "orcaWhirlpool",
     "solarCp",
     "solarClmm",
     "invariant",
-  ];
+  ] as const;
 
-  dexVariants.forEach((dexName) => {
-    it(`rejects foreign owner for ${dexName}`, async () => {
-      // Build a SwapLeg with the correct enum shape for Anchor
+  dexVariantNames.forEach((variant) => {
+    it(`rejects foreign owner for ${variant}`, async function () {
+      // Build a leg with the correct enum encoding for dexId
       const leg = {
         ...buildDummyLeg(mint, 1000n, 900n),
-        dexId: buildDexId(dexName),
+        dexId: dexIdEnum(variant),
         accountCount: 1,
       };
       const rogueAcc = anchor.web3.Keypair.generate();
@@ -69,21 +110,11 @@ describe("fuzz: adapter owner whitelist", () => {
         1_000_000_000
       );
 
-      // Security: Explicit error assertion, do not rely on .rejects
+      // Security: Use try/catch to assert on error, as .rejects does not exist on Chai's expect
       let errorCaught = false;
       try {
-        // Ensure the leg.dexId is properly typed for Anchor's enum expectations
-        const formattedLeg = {
-          ...leg,
-          dexId: dexVariants.reduce((acc, variant) => {
-            acc[variant] = undefined;
-            return acc;
-          }, {} as any),
-          ...leg.dexId,
-        };
-
         await program.methods
-          .route([formattedLeg], new anchor.BN(2000), new anchor.BN(850))
+          .route([leg], new BN(2000), new BN(850))
           .accounts({
             userAuthority: provider.wallet.publicKey,
             userSource: ata,
@@ -95,10 +126,15 @@ describe("fuzz: adapter owner whitelist", () => {
             { pubkey: rogueAcc.publicKey, isSigner: false, isWritable: false },
           ])
           .rpc();
-      } catch (err) {
+      } catch (err: any) {
         errorCaught = true;
+        // Security: Ensure the error is an AnchorError or a generic error
+        expect(err).to.be.instanceOf(Error);
       }
-      expect(errorCaught).to.be.true;
+      expect(
+        errorCaught,
+        `Expected route to fail for foreign owner on ${variant}`
+      ).to.be.true;
     });
   });
 });
