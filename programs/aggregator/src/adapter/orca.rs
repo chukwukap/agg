@@ -33,6 +33,8 @@ use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
 
+/// Orca Whirlpool program-ID (mainnet-beta & localnet).
+/// Source: https://github.com/orca-so/whirlpools
 pub const ORCA_WHIRLPOOL_PROGRAM_ID: Pubkey =
     pubkey!("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc");
 
@@ -49,9 +51,12 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     // Owner whitelist check for every account
     for ai in rem_slice {
         let owner = *ai.owner;
-        // Only the Whirlpool program itself or SPL-Token accounts are allowed.
+        // Only the Whirlpool program itself, SPL-Token accounts, or the
+        // upgradeable BPF loader (i.e. program-owned) accounts are allowed.
         require!(
-            owner == ORCA_WHIRLPOOL_PROGRAM_ID || owner == SPL_TOKEN_ID,
+            owner == ORCA_WHIRLPOOL_PROGRAM_ID
+                || owner == SPL_TOKEN_ID
+                || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
             AggregatorError::InvalidProgramId
         );
     }

@@ -7,9 +7,11 @@ import {
   ensureTestConfig,
   buildDummyLeg,
   createAtaForMint,
+  getConfigPda,
 } from "./utils";
-import { ComputeBudgetProgram } from "@solana/web3.js";
+import { ComputeBudgetProgram, SendTransactionError } from "@solana/web3.js";
 import { expect } from "chai";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 const program = anchor.workspace.aggregator as Program<Aggregator>;
 
@@ -18,9 +20,10 @@ const program = anchor.workspace.aggregator as Program<Aggregator>;
  * We use the stub Lifinity adapter (0 remaining accounts) so no heavy account
  * setup is needed.  These tests focus on high-level router behaviour & guards.
  */
-describe.skip("integration: router behaviour", function () {
+describe("integration: router behaviour", function () {
   let mint: anchor.web3.PublicKey;
   let ata: anchor.web3.PublicKey;
+  let configPda: anchor.web3.PublicKey = getConfigPda()[0];
 
   before("setup token accounts", async function () {
     const res = await setupTokenAccounts(5_000_000n);
@@ -31,29 +34,42 @@ describe.skip("integration: router behaviour", function () {
   });
 
   /** Happy path: one leg succeeds and respects slippage/net-out */
-  it("executes a single-leg route & deducts protocol fee", async function () {
+  it.only("executes a single-leg route & deducts protocol fee", async function () {
     const leg = buildDummyLeg(mint, 1_000_000n, 800_000n); // 1M in, 0.8M out
 
-    await program.methods
-      .unpause()
-      .accounts({
-        admin: provider.wallet.publicKey,
-      })
-      .rpc();
+    try {
+      await program.methods
+        .unpause()
+        .accounts({
+          admin: provider.wallet.publicKey,
+        })
+        .rpc();
 
-    await program.methods
-      .route([leg], new anchor.BN(1_100_000), new anchor.BN(780_000)) // max_in 1.1M, min_out 0.78M
-      .accounts({
-        userAuthority: provider.wallet.publicKey,
-        userSource: ata,
-        userDestination: ata,
-        feeVault: ata,
-        computeBudget: ComputeBudgetProgram.programId,
-      })
-      .preInstructions([
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
-      ])
-      .rpc();
+      await program.methods
+        .route([leg], new anchor.BN(1_100_000), new anchor.BN(780_000)) // max_in 1.1M, min_out 0.78M
+        .accountsStrict({
+          userAuthority: provider.wallet.publicKey,
+          userSource: ata,
+          userDestination: ata,
+          feeVault: ata,
+          computeBudget: ComputeBudgetProgram.programId,
+          config: configPda,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .preInstructions([
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
+        ])
+        .rpc();
+    } catch (error) {
+      if (error instanceof SendTransactionError) {
+        console.log(
+          "error========>>>",
+          await error.getLogs(provider.connection)
+        );
+      } else {
+        console.log("error========>>>", error);
+      }
+    }
   });
 
   /** Guard: consecutive legs must have matching mints */

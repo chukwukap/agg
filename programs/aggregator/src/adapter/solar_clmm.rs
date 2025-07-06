@@ -4,6 +4,7 @@ use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
 
+// WARNING : This program has been closed on eclipse mainnet
 pub const SOLAR_CLMM_PROGRAM_ID: Pubkey = pubkey!("CLsiWisG9Ek7dFgD8ENYtxLBbMEVxB64M3wD4f2XuZSn");
 
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {

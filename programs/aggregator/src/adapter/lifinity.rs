@@ -4,6 +4,8 @@ use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
 
+/// Lifinity V2 program-ID (mainnet-beta & local validator).
+/// Source: https://github.com/Lifinity-Labs/lifinity-amm-v2-eclipse
 pub const LIFINITY_PROGRAM_ID: Pubkey = pubkey!("LfacfEjtujQTWBXZVzgkiPBw7Mt4guHSsmAi7y3cycL");
 
 /// Invoke Lifinity V2 `swap` instruction.
@@ -24,7 +26,9 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     for ai in rem_slice {
         let owner = *ai.owner;
         require!(
-            owner == LIFINITY_PROGRAM_ID || owner == SPL_TOKEN_ID,
+            owner == LIFINITY_PROGRAM_ID
+                || owner == SPL_TOKEN_ID
+                || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
             AggregatorError::InvalidProgramId
         );
     }

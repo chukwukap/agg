@@ -4,7 +4,7 @@ use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
 
-pub const INVARIANT_PROGRAM_ID: Pubkey = pubkey!("iNvTyprs4TX8m6UeUEkeqDFjAL9zRCRWcexK9Sd4WEU");
+pub const INVARIANT_PROGRAM_ID: Pubkey = pubkey!("S7Qs4dWfxDsSoCyHDwNoudSTRhkXSC5KSMKoGAncSHM");
 
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
     let needed = leg.account_count as usize;
