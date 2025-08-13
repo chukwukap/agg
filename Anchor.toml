@@ -6,16 +6,16 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-aggregator = "81VEHHWGikHo5wkBAPRZQUJs5LY5Yg5zrooifw27PbXt"
+aggregator = "2De6Tg3Snwste9Bv73YJ9xLC12whrPnisdXBmTMqUv4j"
 
 [programs.localnet]
-aggregator = "81VEHHWGikHo5wkBAPRZQUJs5LY5Yg5zrooifw27PbXt"
+aggregator = "2De6Tg3Snwste9Bv73YJ9xLC12whrPnisdXBmTMqUv4j"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "https://devnet.helius-rpc.com/?api-key=5cc0897b-9a7c-44a9-bf01-7fbe84eb82c2"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

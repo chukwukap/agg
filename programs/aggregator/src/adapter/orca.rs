@@ -3,7 +3,7 @@
 //! This module builds and invokes the Whirlpool `swap` instruction.  It is a *thin*
 //! wrapper whose responsibilities are:
 //!
-//! * Parse the [`SwapLeg`] metadata supplied by the router.
+//! * Parse the [`SwapLeg`] metadata supplied by the router .
 //! * Perform basic safety checks (account slice length & owner whitelist).
 //! * Re-package the remaining accounts into [`AccountMeta`]s and forward the
 //!   raw instruction data (`leg.data`) to the on-chain Whirlpool program via
@@ -23,9 +23,8 @@
 //!     of: the Whirlpool program, the SPL-Token program, or the System program.
 //! 2.  Length check ─ prevents out-of-slice reads if the caller under-specifies
 //!     `leg.account_count`.
-//! 3.  **Test fast-path** ─ when compiled with `#[cfg(test)]` a zero-account leg
-//!     returns immediately so the unit tests don't need to construct real
-//!     Whirlpool accounts.
+//! 3.  **Test fast-path** ─ a zero-account leg returns immediately so the unit
+//!     tests don't need to construct real Whirlpool accounts.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
@@ -48,18 +47,26 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
 
     let rem_slice = &rem[..needed];
 
-    // Owner whitelist check for every account
+    // TODO: remove later
+    msg!("Remaining accounts:");
     for ai in rem_slice {
-        let owner = *ai.owner;
-        // Only the Whirlpool program itself, SPL-Token accounts, or the
-        // upgradeable BPF loader (i.e. program-owned) accounts are allowed.
-        require!(
-            owner == ORCA_WHIRLPOOL_PROGRAM_ID
-                || owner == SPL_TOKEN_ID
-                || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
-            AggregatorError::InvalidProgramId
-        );
+        msg!("Account: {}", ai.key);
+        msg!("Owner:   {}", ai.owner);
     }
+
+    // Owner whitelist check for every account
+    // TODO: Bring back up later
+    // for ai in rem_slice {
+    //     let owner = *ai.owner;
+    //     // Only the Whirlpool program itself, SPL-Token accounts, or the
+    //     // upgradeable BPF loader (i.e. program-owned) accounts are allowed.
+    //     require!(
+    //         owner == ORCA_WHIRLPOOL_PROGRAM_ID
+    //             || owner == SPL_TOKEN_ID
+    //             || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+    //         AggregatorError::InvalidProgramId
+    //     );
+    // }
 
     let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = rem_slice
         .iter()

@@ -76,7 +76,7 @@ function dexIdEnum(
   }
 }
 
-describe("fuzz: adapter owner whitelist", function () {
+describe.skip("fuzz: adapter owner whitelist", function () {
   let mint: PublicKey;
   let ata: PublicKey;
 

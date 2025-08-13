@@ -9,8 +9,10 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@solana/web3.js": "^1.98.2",
-    "chai-as-promised": "^8.0.1"
+    "@lifinity/sdk-v2": "^2.0.3",
+    "@orca-so/whirlpools": "^3.0.0",
+    "@solana/kit": "2",
+    "@solana/web3.js": "^1.98.2"
   },
   "devDependencies": {
     "@solana/spl-token": "^0.4.13",

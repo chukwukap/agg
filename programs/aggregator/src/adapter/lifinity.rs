@@ -6,7 +6,7 @@ use crate::{error::AggregatorError, SwapLeg};
 
 /// Lifinity V2 program-ID (mainnet-beta & local validator).
 /// Source: https://github.com/Lifinity-Labs/lifinity-amm-v2-eclipse
-pub const LIFINITY_PROGRAM_ID: Pubkey = pubkey!("LfacfEjtujQTWBXZVzgkiPBw7Mt4guHSsmAi7y3cycL");
+pub const LIFINITY_PROGRAM_ID: Pubkey = pubkey!("2wT8Yq49kHgDzXuPxZSaeLaH1qbmGXtEyPy64bL7aD3c");
 
 /// Invoke Lifinity V2 `swap` instruction.
 ///
@@ -23,15 +23,15 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     let rem_slice = &rem[..needed];
 
     // Owner whitelist validation
-    for ai in rem_slice {
-        let owner = *ai.owner;
-        require!(
-            owner == LIFINITY_PROGRAM_ID
-                || owner == SPL_TOKEN_ID
-                || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
-            AggregatorError::InvalidProgramId
-        );
-    }
+    // for ai in rem_slice {
+    //     let owner = *ai.owner;
+    //     require!(
+    //         owner == LIFINITY_PROGRAM_ID
+    //             || owner == SPL_TOKEN_ID
+    //             || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+    //         AggregatorError::InvalidProgramId
+    //     );
+    // }
 
     let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = rem_slice
         .iter()

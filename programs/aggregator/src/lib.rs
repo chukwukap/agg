@@ -10,7 +10,7 @@ pub mod state;
 
 use error::AggregatorError;
 
-declare_id!("81VEHHWGikHo5wkBAPRZQUJs5LY5Yg5zrooifw27PbXt");
+declare_id!("2De6Tg3Snwste9Bv73YJ9xLC12whrPnisdXBmTMqUv4j");
 
 #[program]
 pub mod aggregator {
@@ -26,7 +26,7 @@ pub mod aggregator {
     ///   balance delta).  
     /// * `user_min_out` ‑ minimum number of destination tokens the user expects to
     ///   receive in total (**true anti-slippage check** – evaluated post-swap using
-    ///   the actual output).  
+    ///   the actual output).
     ///
     /// Security-wise the instruction enforces:  
     /// 1. protocol pause switch  
@@ -162,7 +162,6 @@ pub mod aggregator {
             AggregatorError::FeeVaultOwnerMismatch
         );
 
-        #[cfg(not(test))]
         if fee_amount > 0 {
             let cpi_ctx = token::Transfer {
                 from: ctx.accounts.user_destination.to_account_info(),

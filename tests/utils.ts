@@ -5,9 +5,12 @@ import {
   createMint,
   getOrCreateAssociatedTokenAccount,
   getAccount,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
+  mintTo,
 } from "@solana/spl-token";
 
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, Transaction } from "@solana/web3.js";
 import { Aggregator } from "../target/types/aggregator";
 
 // Global provider (same as Anchor CLI)
@@ -155,3 +158,57 @@ export async function requestAirdrop(
 ) {
   return provider.connection.requestAirdrop(pubkey, Number(amount));
 }
+
+/**
+ * Creates a new SPL mint, an associated token account for the payer, and mints the specified amount.
+ * @param amount Amount to mint (in native units)
+ * @returns The mint's PublicKey
+ */
+export async function createMintWithBalance(
+  amount: bigint
+): Promise<PublicKey> {
+  const connection = provider.connection;
+  const payer = provider.wallet.payer;
+
+  // Create a new mint with 6 decimals
+  const mint = await createMint(connection, payer, payer.publicKey, null, 6);
+  const ata = getAssociatedTokenAddressSync(mint, payer.publicKey);
+
+  // Create the associated token account for the payer
+  await provider.sendAndConfirm(
+    new Transaction().add(
+      createAssociatedTokenAccountInstruction(
+        payer.publicKey,
+        ata,
+        payer.publicKey,
+        mint
+      )
+    )
+  );
+
+  // Mint the specified amount to the payer's ATA
+  if (amount > 0n) {
+    await mintTo(connection, payer, mint, ata, payer, amount);
+  }
+
+  return mint;
+}
+
+export const WHIRLPOOL_PROGRAM_ID = new PublicKey(
+  "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+);
+
+export const LIFINITY_PROGRAM_ID = new PublicKey(
+  "2wT8Yq49kHgDzXuPxZSaeLaH1qbmGXtEyPy64bL7aD3c"
+);
+
+// this tokens and pools are on solana devnet
+export const TestTokenA = new PublicKey(
+  "8PCG6MYJpM6xbVjAYgWF23XLjhpzGHTmFrcNReeQ7yeR"
+);
+export const TestTokenB = new PublicKey(
+  "HbCVgB4Pi4dc3MNp5j1PCKtDmP9ZgJukgBUSPKQAVXoq"
+);
+
+// splash pool
+export const TestPoolAddress = "Ee4SDoT153bMnbAU6YRxbJucZ1vaGLE9ajXhhAEEPYS1";
