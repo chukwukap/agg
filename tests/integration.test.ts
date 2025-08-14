@@ -428,7 +428,9 @@ describe("integration: router behaviour", function () {
 
   /** Fee-vault address mismatch (mint matches) */
   it("fails when fee vault address != admin ATA for out mint", async function () {
-    const otherVault = await createAtaForMint(mint, provider.wallet.publicKey);
+    const rogue = anchor.web3.Keypair.generate();
+    await provider.connection.requestAirdrop(rogue.publicKey, 1_000_000_000);
+    const otherVault = await createAtaForMint(mint, rogue.publicKey);
     const leg = buildDummyLeg(mint, 1000n, 900n);
 
     let errorCaught = false;
