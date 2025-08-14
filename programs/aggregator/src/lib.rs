@@ -103,6 +103,11 @@ pub mod aggregator {
 
             // Each adapter will consume some of the remaining accounts slice; we ignore any reported amounts for security.
             let (_spent_hint, _received_hint, consumed) = adapter::dispatch(leg, rem_accs)?;
+            // Defense-in-depth: adapter must consume exactly what the leg declares
+            require!(
+                consumed == leg.account_count as usize,
+                AggregatorError::RemainingAccountsMismatch
+            );
             require!(
                 consumed <= rem_accs.len(),
                 AggregatorError::RemainingAccountsMismatch
@@ -207,6 +212,7 @@ pub mod aggregator {
             total_out: delta_out,
             fee_charged: fee_amount,
             legs: legs.len() as u8,
+            fee_bps: cfg.fee_bps,
         });
 
         // Final state: tokens already in user_destination (minus fee). No extra action.
@@ -279,8 +285,6 @@ pub struct RouteAccounts<'info> {
 
     // Programs
     pub token_program: Program<'info, Token>,
-    /// CHECK: Compute budget program
-    pub compute_budget: AccountInfo<'info>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
@@ -321,6 +325,7 @@ pub struct RouteExecuted {
     pub total_out: u64,
     pub fee_charged: u64,
     pub legs: u8,
+    pub fee_bps: u16,
 }
 
 /// Upper bound on route legs to keep compute and tx size predictable.
