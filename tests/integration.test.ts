@@ -4,6 +4,7 @@ import { Aggregator } from "../target/types/aggregator";
 import {
   setupTokenAccounts,
   provider,
+  setDevnetProvider,
   buildDummyLeg,
   createAtaForMint,
   getConfigPda,
@@ -39,7 +40,9 @@ describe("integration: router behaviour (lean)", function () {
   let ata: anchor.web3.PublicKey;
   let configPda: anchor.web3.PublicKey = getConfigPda()[0];
 
-  before("setup token accounts", async function () {
+  before("setup token accounts (devnet)", async function () {
+    // Force devnet provider
+    setDevnetProvider();
     const res = await setupTokenAccounts(5_000_000n);
     mint = res.mint;
     ata = res.ata;
@@ -65,9 +68,9 @@ describe("integration: router behaviour (lean)", function () {
     // 1) Ensure Config exists
     const [configPda] = getConfigPda();
     try {
-      await (anchor.workspace.aggregator as Program<Aggregator>).account.config.fetch(
-        configPda
-      );
+      await (
+        anchor.workspace.aggregator as Program<Aggregator>
+      ).account.config.fetch(configPda);
     } catch (_) {
       await (anchor.workspace.aggregator as Program<Aggregator>).methods
         .initConfig(200)
@@ -128,7 +131,11 @@ describe("integration: router behaviour (lean)", function () {
 
     // 5) Execute route on devnet program
     const txSig = await program.methods
-      .route([leg], new anchor.BN(inAmount.toString()), new anchor.BN(minOut.toString()))
+      .route(
+        [leg],
+        new anchor.BN(inAmount.toString()),
+        new anchor.BN(minOut.toString())
+      )
       .accountsStrict({
         userAuthority,
         userSource,
@@ -144,7 +151,9 @@ describe("integration: router behaviour (lean)", function () {
       .rpc();
 
     console.log("devnet swap tx:", txSig);
-    console.log(`Explorer: https://explorer.solana.com/tx/${txSig}?cluster=devnet`);
+    console.log(
+      `Explorer: https://explorer.solana.com/tx/${txSig}?cluster=devnet`
+    );
   });
 
   it("executes a zero-account leg path (no-op) and respects guards", async function () {

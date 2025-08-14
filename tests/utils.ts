@@ -13,9 +13,26 @@ import {
 import { PublicKey, Transaction } from "@solana/web3.js";
 import { Aggregator } from "../target/types/aggregator";
 
-// Global provider (same as Anchor CLI)
-export const provider = anchor.AnchorProvider.env();
+// Global provider (same as Anchor CLI), but allow overriding to devnet within tests
+export let provider = anchor.AnchorProvider.env();
 anchor.setProvider(provider);
+
+export function setProvider(p: anchor.AnchorProvider) {
+  provider = p;
+  anchor.setProvider(provider);
+}
+
+export function setDevnetProvider(rpcUrl?: string) {
+  const url =
+    rpcUrl || process.env.ANCHOR_PROVIDER_URL || "https://api.devnet.solana.com";
+  const conn = new anchor.web3.Connection(url, "confirmed");
+  const newProvider = new anchor.AnchorProvider(
+    conn,
+    provider.wallet,
+    { commitment: "confirmed" }
+  );
+  setProvider(newProvider);
+}
 
 /**
  * Create a fresh 6-decimals SPL mint and a funded ATA for the provider wallet.
