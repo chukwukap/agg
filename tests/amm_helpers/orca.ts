@@ -102,6 +102,43 @@ export async function buildOrcaWhirlpoolLeg(amountIn: bigint, minOut: bigint) {
   return { leg, remainingAccounts };
 }
 
+/** Devnet helper: build Whirlpool leg for a known pool and mints */
+export async function buildOrcaWhirlpoolLegForPool(
+  amountIn: bigint,
+  minOut: bigint,
+  poolAddressStr: string,
+  inputMint: PublicKey,
+  outputMint: PublicKey,
+  slippageBps = 100
+) {
+  setRpc(provider.connection.rpcEndpoint);
+  await setPayerFromBytes(provider.wallet.payer.secretKey);
+  await setWhirlpoolsConfig("solanaDevnet");
+
+  const rpc = createSolanaRpc(provider.connection.rpcEndpoint);
+  const { instructions } = await swapInstructions(
+    rpc,
+    { inputAmount: amountIn, mint: address(inputMint.toBase58()) },
+    address(poolAddressStr),
+    slippageBps
+  );
+
+  const ix = instructions[instructions.length - 1];
+  const remainingAccounts = ix.accounts.map((k) => mapRoleToMeta(k.address, k.role));
+
+  const leg: SwapLeg = {
+    dexId: { orcaWhirlpool: {} },
+    inAmount: new anchor.BN(amountIn.toString()),
+    minOut: new anchor.BN(minOut.toString()),
+    accountCount: remainingAccounts.length,
+    data: Buffer.from(ix.data as Uint8Array),
+    inMint: inputMint,
+    outMint: outputMint,
+  } as SwapLeg;
+
+  return { leg, remainingAccounts };
+}
+
 /**
  * Creates a splash pool for two mints and returns the pool address.
  * @param mintA First token mint

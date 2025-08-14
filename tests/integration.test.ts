@@ -16,7 +16,13 @@ import {
   SendTransactionError,
 } from "@solana/web3.js";
 import { expect } from "chai";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
+  createSyncNativeInstruction,
+} from "@solana/spl-token";
+import { buildOrcaWhirlpoolLegForPool } from "./amm_helpers/orca";
 // Heavy AMM helpers are excluded in lean test mode
 
 const program = anchor.workspace.aggregator as Program<Aggregator>;
@@ -48,6 +54,97 @@ describe("integration: router behaviour (lean)", function () {
         .accounts({ admin: provider.wallet.publicKey })
         .rpc();
     }
+  });
+
+  it("devnet: executes Orca Whirlpool WSOL->USDC and collects fee", async function () {
+    // Known devnet WSOL/USDC pool and mints (replace if needed)
+    const WSOL = new PublicKey("So11111111111111111111111111111111111111112");
+    const USDC = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD1gYQTeWY5Avzk1H3eZ9Do"); // common devnet USDC; adjust if necessary
+    const POOL = "Ee4SDoT153bMnbAU6YRxbJucZ1vaGLE9ajXhhAEEPYS1"; // from utils TestPoolAddress
+
+    // 1) Ensure Config exists
+    const [configPda] = getConfigPda();
+    try {
+      await (anchor.workspace.aggregator as Program<Aggregator>).account.config.fetch(
+        configPda
+      );
+    } catch (_) {
+      await (anchor.workspace.aggregator as Program<Aggregator>).methods
+        .initConfig(200)
+        .accounts({ admin: provider.wallet.publicKey })
+        .rpc();
+    }
+
+    // 2) Build Whirlpool leg for the known pool (small trade)
+    const inAmount = 50_000_000n; // 0.05 SOL
+    const minOut = 1n;
+    const { leg, remainingAccounts } = await buildOrcaWhirlpoolLegForPool(
+      inAmount,
+      minOut,
+      POOL,
+      WSOL,
+      USDC,
+      150
+    );
+
+    // 3) Ensure user WSOL ATA is wrapped with lamports
+    const userAuthority = provider.wallet.publicKey;
+    const userSource = getAssociatedTokenAddressSync(WSOL, userAuthority);
+    const wrapTx = new anchor.web3.Transaction()
+      .add(
+        createAssociatedTokenAccountInstruction(
+          userAuthority,
+          userSource,
+          userAuthority,
+          WSOL
+        )
+      )
+      .add(
+        anchor.web3.SystemProgram.transfer({
+          fromPubkey: userAuthority,
+          toPubkey: userSource,
+          lamports: Number(inAmount),
+        })
+      )
+      .add(createSyncNativeInstruction(userSource));
+    try {
+      await provider.sendAndConfirm(wrapTx);
+    } catch (_) {}
+
+    // 4) Ensure user destination and admin fee vault ATAs for USDC
+    const userDestination = getAssociatedTokenAddressSync(USDC, userAuthority);
+    const createAtas = new anchor.web3.Transaction().add(
+      createAssociatedTokenAccountInstruction(
+        userAuthority,
+        userDestination,
+        userAuthority,
+        USDC
+      )
+    );
+    try {
+      await provider.sendAndConfirm(createAtas);
+    } catch (_) {}
+    const feeVault = getAssociatedTokenAddressSync(USDC, userAuthority);
+
+    // 5) Execute route on devnet program
+    const txSig = await program.methods
+      .route([leg], new anchor.BN(inAmount.toString()), new anchor.BN(minOut.toString()))
+      .accountsStrict({
+        userAuthority,
+        userSource,
+        userDestination,
+        feeVault,
+        config: configPda,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .remainingAccounts(remainingAccounts)
+      .preInstructions([
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_600_000 }),
+      ])
+      .rpc();
+
+    console.log("devnet swap tx:", txSig);
+    console.log(`Explorer: https://explorer.solana.com/tx/${txSig}?cluster=devnet`);
   });
 
   it("executes a zero-account leg path (no-op) and respects guards", async function () {
