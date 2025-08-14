@@ -63,6 +63,13 @@ export async function buildOrcaWhirlpoolLegForPool(
   const remainingAccounts = Array.from(ix.accounts).map((k) =>
     mapRoleToMeta(k.address, k.role)
   );
+  // Prepend Whirlpool program account for CPI
+  remainingAccounts.unshift({
+    pubkey: utils.WHIRLPOOL_PROGRAM_ID,
+    isSigner: false,
+    isWritable: false,
+  });
+  console.log("remainingAccounts", remainingAccounts);
   const leg: SwapLeg = {
     dexId: { orcaWhirlpool: {} },
     inAmount: new anchor.BN(amountIn.toString()),
@@ -137,7 +144,8 @@ function mapRoleToMeta(address: string, role: AccountRole) {
   const isSystemProgram = address === "11111111111111111111111111111111";
   const isSigner =
     !isSystemProgram &&
-    (role === AccountRole.WRITABLE_SIGNER || role === AccountRole.READONLY_SIGNER);
+    (role === AccountRole.WRITABLE_SIGNER ||
+      role === AccountRole.READONLY_SIGNER);
   const isWritable =
     role === AccountRole.WRITABLE || role === AccountRole.WRITABLE_SIGNER;
   return {
