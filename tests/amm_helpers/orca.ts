@@ -52,17 +52,17 @@ export async function buildOrcaWhirlpoolLegForPool(
     slippageBps
   );
 
+  // // Prepend the Whirlpool program account required by CPI
+  // remainingAccounts.unshift({
+  //   pubkey: utils.WHIRLPOOL_PROGRAM_ID,
+  //   isSigner: false,
+  //   isWritable: false,
+  // });
   const ix = instructions[instructions.length - 1];
-  const remainingAccounts = ix.accounts.map((k) =>
+  // Map readonly SDK accounts -> mutable AccountMeta[] for Anchor .remainingAccounts()
+  const remainingAccounts = Array.from(ix.accounts).map((k) =>
     mapRoleToMeta(k.address, k.role)
   );
-  // Prepend the Whirlpool program account required by CPI
-  remainingAccounts.unshift({
-    pubkey: utils.WHIRLPOOL_PROGRAM_ID,
-    isSigner: false,
-    isWritable: false,
-  });
-
   const leg: SwapLeg = {
     dexId: { orcaWhirlpool: {} },
     inAmount: new anchor.BN(amountIn.toString()),
@@ -132,18 +132,14 @@ export async function addFullRangeLiquidity(
   return { positionMint, fullRangeSig };
 }
 
-// Map each Orca SDK role to isSigner/isWritable, safely
+// Map Orca SDK account roles to web3.js AccountMeta
 function mapRoleToMeta(address: string, role: AccountRole) {
   const isSystemProgram = address === "11111111111111111111111111111111";
-
   const isSigner =
     !isSystemProgram &&
-    (role === AccountRole.WRITABLE_SIGNER ||
-      role === AccountRole.READONLY_SIGNER);
-
+    (role === AccountRole.WRITABLE_SIGNER || role === AccountRole.READONLY_SIGNER);
   const isWritable =
     role === AccountRole.WRITABLE || role === AccountRole.WRITABLE_SIGNER;
-
   return {
     pubkey: new PublicKey(address),
     isSigner,
