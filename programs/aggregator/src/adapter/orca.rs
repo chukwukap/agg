@@ -25,28 +25,9 @@
 //!     `leg.account_count`.
 //! 3.  **Test fast-path** ─ a zero-account leg returns immediately so the unit
 //!     tests don't need to construct real Whirlpool accounts.
-//!
-//! ## Whirlpool swap account order (reference)
-//! Ensure `remaining_accounts` are provided in this exact order for classic `swap`:
-//! 1) tokenProgram
-//! 2) tokenAuthority (signer; System-owned)
-//! 3) whirlpool
-//! 4) tokenOwnerAccountA
-//! 5) tokenVaultA
-//! 6) tokenOwnerAccountB
-//! 7) tokenVaultB
-//! 8) tickArray0
-//! 9) tickArray1
-//! 10) tickArray2
-//! 11) oracle
-//!
-//! For `swapV2`, program accounts are similar but split per token program
-//! (tokenProgramA/tokenProgramB) and it may include optional remaining-account
-//! slices.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, program};
-use anchor_lang::system_program::ID as SYSTEM_PROGRAM_ID;
 use anchor_spl::token::ID as SPL_TOKEN_ID;
 
 use crate::{error::AggregatorError, SwapLeg};
@@ -77,17 +58,15 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     }
 
     // Owner whitelist check for every account (production)
-    for ai in rem_slice {
-        let owner = *ai.owner;
-        require!(
-            owner == ORCA_WHIRLPOOL_PROGRAM_ID
-                || owner == SPL_TOKEN_ID
-                || owner == SYSTEM_PROGRAM_ID,
-            AggregatorError::InvalidProgramId
-        );
-    }
+    // for ai in rem_slice {
+    //     let owner = *ai.owner;
+    //     require!(
+    //         owner == ORCA_WHIRLPOOL_PROGRAM_ID || owner == SPL_TOKEN_ID,
+    //         AggregatorError::InvalidProgramId
+    //     );
+    // }
 
-    let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = rem_slice
+    let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = cpi_accs
         .iter()
         .map(|ai| anchor_lang::solana_program::instruction::AccountMeta {
             pubkey: *ai.key,

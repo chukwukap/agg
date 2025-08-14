@@ -11,7 +11,7 @@ pub mod state;
 
 use error::AggregatorError;
 
-declare_id!("2De6Tg3Snwste9Bv73YJ9xLC12whrPnisdXBmTMqUv4j");
+declare_id!("7XEqP1W4vwMtPfkkgs97RnQSeksJHT1jSFuJvg3zm2Hs");
 
 #[program]
 pub mod aggregator {

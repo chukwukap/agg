@@ -22,13 +22,7 @@ import {
 
 import { AccountRole, address, createSolanaRpc } from "@solana/kit";
 
-import {
-  provider,
-  TestPoolAddress,
-  TestTokenA,
-  TestTokenB,
-  WHIRLPOOL_PROGRAM_ID,
-} from "../utils";
+import * as utils from "../utils";
 
 import { IdlTypes } from "@coral-xyz/anchor";
 import { Aggregator as AggregatorIdl } from "../../target/types/aggregator";
@@ -37,72 +31,7 @@ import { Aggregator as AggregatorIdl } from "../../target/types/aggregator";
 
 type SwapLeg = IdlTypes<AggregatorIdl>["swapLeg"];
 
-/**
- * Main entry point for building an Orca Whirlpool swap leg for testing.
- * This function wires together all helper functions to:
- *  - create two mints with balances
- *  - create a splash pool for those mints
- *  - add full range liquidity to the pool
- *  - build a swap instruction (A -> B)
- *  - return the SwapLeg and remaining accounts for the aggregator router
- */
-export async function buildOrcaWhirlpoolLeg(amountIn: bigint, minOut: bigint) {
-  // Step 1: Global configuration for the Whirlpool SDK
-  setRpc(provider.connection.rpcEndpoint);
-  await setPayerFromBytes(provider.wallet.payer.secretKey);
-  await setWhirlpoolsConfig("solanaDevnet");
-
-  // Step 2: Create two fresh mints and mint tokens to the payer
-  // const TestTokenA = await createMintWithBalance(100_000_000n);
-  // const TestTokenB = await createMintWithBalance(100_000_000n);
-
-  console.log("mintA =====>", TestTokenA.toBase58());
-  console.log("mintB =====>", TestTokenB.toBase58());
-
-  // Step 3: Create a splash pool for the two mints
-  // const poolAddress = await createAndBootstrapSplashPool(
-  //   TestTokenA.toBase58(),
-  //   TestTokenB.toBase58()
-  // );
-  console.log("poolAddress =====>", TestPoolAddress);
-
-  // Step 4: Add full range liquidity to the pool (required for swaps to succeed)
-  // For test purposes, add 5_000_000 units of token A
-  // await addFullRangeLiquidity(TestPoolAddress, 50_000_000n);
-
-  // Step 5: Build the swap instruction (A -> B)
-  const rpc = createSolanaRpc(provider.connection.rpcEndpoint);
-  // poolAddress is an Address (string-like), as required by swapInstructions
-  const { instructions } = await swapInstructions(
-    rpc,
-    { inputAmount: amountIn, mint: address(TestTokenA.toBase58()) },
-    address(TestPoolAddress),
-    100 // 1% slippage (bps)
-  );
-
-  const ix = instructions[instructions.length - 1];
-
-  console.log("ix =====>", JSON.stringify(ix, null, 2));
-
-  const remainingAccounts = ix.accounts
-    // .filter((k) => !new PublicKey(k.address).equals(PublicKey.default))
-    .map((k) => mapRoleToMeta(k.address, k.role));
-
-  // Step 6: Translate into aggregator structures
-  const leg: SwapLeg = {
-    dexId: { orcaWhirlpool: {} },
-    inAmount: new anchor.BN(amountIn.toString()),
-    minOut: new anchor.BN(minOut.toString()),
-    accountCount: remainingAccounts.length,
-    data: Buffer.from(ix.data as Uint8Array),
-    inMint: TestTokenA,
-    outMint: TestTokenB,
-  } as SwapLeg;
-
-  return { leg, remainingAccounts };
-}
-
-/** Devnet helper: build Whirlpool leg for a known pool and mints */
+// /** Devnet helper: build Whirlpool leg for a known pool and mints */
 export async function buildOrcaWhirlpoolLegForPool(
   amountIn: bigint,
   minOut: bigint,
@@ -111,11 +40,11 @@ export async function buildOrcaWhirlpoolLegForPool(
   outputMint: PublicKey,
   slippageBps = 100
 ) {
-  setRpc(provider.connection.rpcEndpoint);
-  await setPayerFromBytes(provider.wallet.payer.secretKey);
+  setRpc(utils.provider.connection.rpcEndpoint);
+  await setPayerFromBytes(utils.provider.wallet.payer.secretKey);
   await setWhirlpoolsConfig("solanaDevnet");
 
-  const rpc = createSolanaRpc(provider.connection.rpcEndpoint);
+  const rpc = createSolanaRpc(utils.provider.connection.rpcEndpoint);
   const { instructions } = await swapInstructions(
     rpc,
     { inputAmount: amountIn, mint: address(inputMint.toBase58()) },
@@ -127,16 +56,22 @@ export async function buildOrcaWhirlpoolLegForPool(
   const remainingAccounts = ix.accounts.map((k) =>
     mapRoleToMeta(k.address, k.role)
   );
+  // Prepend the Whirlpool program account required by CPI
+  remainingAccounts.unshift({
+    pubkey: utils.WHIRLPOOL_PROGRAM_ID,
+    isSigner: false,
+    isWritable: false,
+  });
 
   const leg: SwapLeg = {
     dexId: { orcaWhirlpool: {} },
     inAmount: new anchor.BN(amountIn.toString()),
     minOut: new anchor.BN(minOut.toString()),
     accountCount: remainingAccounts.length,
-    data: Buffer.from(ix.data as Uint8Array),
+    data: Buffer.from(ix.data.buffer),
     inMint: inputMint,
     outMint: outputMint,
-  } as SwapLeg;
+  };
 
   return { leg, remainingAccounts };
 }
@@ -148,7 +83,7 @@ export async function buildOrcaWhirlpoolLegForPool(
  * @returns The pool address (string)
  */
 async function createAndBootstrapSplashPool(mintA: string, mintB: string) {
-  setRpc(provider.connection.rpcEndpoint);
+  setRpc(utils.provider.connection.rpcEndpoint);
 
   console.log("createSplashPool =====>", mintA, mintB);
   const {

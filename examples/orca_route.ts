@@ -117,6 +117,12 @@ async function main() {
   const remainingAccounts = ix.accounts.map((k) =>
     mapRoleToMeta(k.address, k.role)
   );
+  // Prepend Whirlpool program account as the first CPI account
+  remainingAccounts.unshift({
+    pubkey: new PublicKey("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"),
+    isSigner: false,
+    isWritable: false,
+  });
 
   // Translate to SwapLeg
   const leg = {

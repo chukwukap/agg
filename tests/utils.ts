@@ -24,13 +24,13 @@ export function setProvider(p: anchor.AnchorProvider) {
 
 export function setDevnetProvider(rpcUrl?: string) {
   const url =
-    rpcUrl || process.env.ANCHOR_PROVIDER_URL || "https://api.devnet.solana.com";
+    rpcUrl ||
+    process.env.ANCHOR_PROVIDER_URL ||
+    "https://api.devnet.solana.com";
   const conn = new anchor.web3.Connection(url, "confirmed");
-  const newProvider = new anchor.AnchorProvider(
-    conn,
-    provider.wallet,
-    { commitment: "confirmed" }
-  );
+  const newProvider = new anchor.AnchorProvider(conn, provider.wallet, {
+    commitment: "confirmed",
+  });
   setProvider(newProvider);
 }
 
@@ -209,12 +209,13 @@ export const LIFINITY_PROGRAM_ID = new PublicKey(
 );
 
 // this tokens and pools are on solana devnet
-export const TestTokenA = new PublicKey(
+export const OrcaTestTokenA = new PublicKey(
   "8PCG6MYJpM6xbVjAYgWF23XLjhpzGHTmFrcNReeQ7yeR"
 );
-export const TestTokenB = new PublicKey(
+export const OrcaTestTokenB = new PublicKey(
   "HbCVgB4Pi4dc3MNp5j1PCKtDmP9ZgJukgBUSPKQAVXoq"
 );
 
 // splash pool
-export const TestPoolAddress = "Ee4SDoT153bMnbAU6YRxbJucZ1vaGLE9ajXhhAEEPYS1";
+export const OrcaTestPoolAddress =
+  "Ee4SDoT153bMnbAU6YRxbJucZ1vaGLE9ajXhhAEEPYS1";
