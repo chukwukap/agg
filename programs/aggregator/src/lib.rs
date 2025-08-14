@@ -87,7 +87,10 @@ pub mod aggregator {
         require!(legs.len() > 0, AggregatorError::NoLegs);
 
         // 5) Bound the number of legs
-        require!(legs.len() <= MAX_LEGS as usize, AggregatorError::TooManyLegs);
+        require!(
+            legs.len() <= MAX_LEGS as usize,
+            AggregatorError::TooManyLegs
+        );
 
         let mut prev_out_mint: Option<Pubkey> = None;
 
@@ -168,10 +171,8 @@ pub mod aggregator {
         );
 
         // Validate that the provided fee_vault is the admin's ATA for the final out mint.
-        let expected_fee_vault = get_associated_token_address(
-            &cfg.admin,
-            &ctx.accounts.user_destination.mint,
-        );
+        let expected_fee_vault =
+            get_associated_token_address(&cfg.admin, &ctx.accounts.user_destination.mint);
         require_keys_eq!(
             ctx.accounts.fee_vault.key(),
             expected_fee_vault,
@@ -218,13 +219,12 @@ pub mod aggregator {
         let cfg = &mut ctx.accounts.config;
         cfg.admin = ctx.accounts.admin.key();
         cfg.fee_bps = fee_bps;
-        cfg.fee_vault = ctx.accounts.fee_vault.key();
         cfg.paused = false;
         cfg.bump = ctx.bumps.config;
         Ok(())
     }
 
-    pub fn set_config(ctx: Context<Admin>, fee_bps: u16, fee_vault: Pubkey) -> Result<()> {
+    pub fn set_config(ctx: Context<Admin>, fee_bps: u16) -> Result<()> {
         let cfg = &mut ctx.accounts.config;
         require!(
             ctx.accounts.admin.key() == cfg.admin,
@@ -234,7 +234,6 @@ pub mod aggregator {
         // Validate new fee and vault before committing.
         require!(fee_bps <= 10_000, AggregatorError::InvalidFeeBps);
         cfg.fee_bps = fee_bps;
-        cfg.fee_vault = fee_vault;
         Ok(())
     }
 
@@ -335,15 +334,12 @@ pub struct InitConfig<'info> {
     #[account(mut, signer)]
     pub admin: Signer<'info>,
 
-    #[account(mut)]
-    pub fee_vault: Account<'info, TokenAccount>,
-
     #[account(
         init,
         payer = admin,
         seeds = [b"config"],
         bump,
-        space = 8 + 32 + 2 + 32 + 1 + 1,
+        space = 8 + 32 + 2 + 1 + 1,
     )]
     pub config: Account<'info, Config>,
 
