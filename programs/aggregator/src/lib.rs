@@ -297,15 +297,27 @@ pub enum DexId {
     Invariant = 4,
 }
 
+/// Describes a single CPI leg into a downstream AMM.
+///
+/// The router will forward `account_count` accounts from `ctx.remaining_accounts`
+/// to the selected adapter based on `dex_id`. The adapter will then invoke the
+/// AMM program with `data` as the raw instruction payload.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct SwapLeg {
+    /// Target DEX adapter.
     pub dex_id: DexId,
+    /// Intended input amount for this leg (hint; actual spent is computed post-swap).
     pub in_amount: u64,
+    /// Intended minimum output for this leg (hint; final slippage check is applied on net output after fees).
     pub min_out: u64,
-    pub account_count: u8, // Number of AccountInfos following in remaining_accounts
-    pub data: Vec<u8>,     // Raw instruction data for the adapter
-    pub in_mint: Pubkey,   // Expected input SPL mint for this leg
-    pub out_mint: Pubkey,  // Expected output SPL mint for this leg
+    /// Number of `AccountInfo`s to consume from `remaining_accounts` for this leg.
+    pub account_count: u8,
+    /// Raw instruction bytes for the AMM call (Anchor discriminator + Borsh-encoded args for that AMM instruction).
+    pub data: Vec<u8>,
+    /// Expected input SPL mint for this leg (continuity-checked by router).
+    pub in_mint: Pubkey,
+    /// Expected output SPL mint for this leg (continuity-checked by router).
+    pub out_mint: Pubkey,
 }
 
 #[error_code]
