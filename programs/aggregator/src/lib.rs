@@ -287,7 +287,7 @@ pub struct RouteAccounts<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 pub enum DexId {
     LifinityV2 = 0,
@@ -358,3 +358,6 @@ pub struct Admin<'info> {
     #[account(signer)]
     pub admin: Signer<'info>,
 }
+
+#[cfg(test)]
+mod test;

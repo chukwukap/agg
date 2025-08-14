@@ -124,7 +124,9 @@ export async function buildOrcaWhirlpoolLegForPool(
   );
 
   const ix = instructions[instructions.length - 1];
-  const remainingAccounts = ix.accounts.map((k) => mapRoleToMeta(k.address, k.role));
+  const remainingAccounts = ix.accounts.map((k) =>
+    mapRoleToMeta(k.address, k.role)
+  );
 
   const leg: SwapLeg = {
     dexId: { orcaWhirlpool: {} },

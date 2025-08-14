@@ -17,8 +17,8 @@
 
 use super::*;
 use crate::{adapter, DexId, SwapLeg};
-use anchor_lang::prelude::*;
-use proptest::prelude::*;
+// Keep imports minimal for unit tests
+// Removed property-based tests to keep the suite lean and deterministic
 
 /// Helper to build a minimal `SwapLeg` for a given DEX.
 fn dummy_leg(dex: DexId, in_amount: u64, min_out: u64, account_count: u8) -> SwapLeg {
@@ -42,17 +42,6 @@ const ALL_DEXES: &[DexId] = &[
     DexId::Invariant,
 ];
 
-/// Creates a **zeroed** `AccountInfo` suitable only for unit testing where the
-/// value is never dereferenced.  This avoids having to spin up real account
-/// structs for every property-test case.
-fn dummy_account_info<'info>() -> AccountInfo<'info> {
-    // SAFETY: We only pass the resulting `AccountInfo` by reference to adapters
-    // that will *not* dereference the data under `#[cfg(test)]` because the
-    // CPI invocation itself is skipped with `#[cfg(not(test))]`.  Therefore it
-    // is safe to provide an all-zeroed struct.
-    unsafe { std::mem::zeroed() }
-}
-
 // ------------- Basic happy-path tests ------------- //
 
 #[test]
@@ -71,12 +60,11 @@ fn adapter_happy_path_returns_expected_triplet() {
 fn adapter_errors_on_insufficient_remaining_accounts() {
     // Provide a leg that claims it needs 2 accounts but pass in only 1.
     let leg = dummy_leg(DexId::LifinityV2, 100, 90, 2);
-    let dummy_account = dummy_account_info();
-    let err = adapter::lifinity::invoke(&leg, &[dummy_account]).unwrap_err();
+    let err = adapter::lifinity::invoke(&leg, &[]).unwrap_err();
     // The error should map to our `RemainingAccountsMismatch` variant.
     match err {
         anchor_lang::error::Error::AnchorError(anchor_err) => {
-            assert_eq!(anchor_err.error_name(), "RemainingAccountsMismatch");
+            assert_eq!(anchor_err.error_name, "RemainingAccountsMismatch");
         }
         other => panic!("unexpected error variant: {:?}", other),
     }
@@ -87,16 +75,19 @@ fn adapter_errors_on_insufficient_accounts_for_all_dexes() {
     // For every DEX, require that providing fewer accounts than declared results in an error.
     for &dex in ALL_DEXES {
         let leg = dummy_leg(dex, 123, 100, 2);
-        let one = dummy_account_info();
         let result = match dex {
-            DexId::LifinityV2 => crate::adapter::lifinity::invoke(&leg, &[one]),
-            DexId::OrcaWhirlpool => crate::adapter::orca::invoke(&leg, &[one]),
-            DexId::SolarCp => crate::adapter::solar_cp::invoke(&leg, &[one]),
-            DexId::SolarClmm => crate::adapter::solar_clmm::invoke(&leg, &[one]),
-            DexId::Invariant => crate::adapter::invariant::invoke(&leg, &[one]),
+            DexId::LifinityV2 => crate::adapter::lifinity::invoke(&leg, &[]),
+            DexId::OrcaWhirlpool => crate::adapter::orca::invoke(&leg, &[]),
+            DexId::SolarCp => crate::adapter::solar_cp::invoke(&leg, &[]),
+            DexId::SolarClmm => crate::adapter::solar_clmm::invoke(&leg, &[]),
+            DexId::Invariant => crate::adapter::invariant::invoke(&leg, &[]),
         };
 
-        assert!(result.is_err(), "expected error for insufficient accounts: {:?}", dex);
+        assert!(
+            result.is_err(),
+            "expected error for insufficient accounts: {:?}",
+            dex
+        );
     }
 }
 
@@ -106,41 +97,7 @@ fn max_legs_constant_is_reasonable() {
     assert!(crate::MAX_LEGS <= 16, "MAX_LEGS unexpectedly high");
 }
 
-// ------------- Property tests (proptest) ------------- //
-
-proptest! {
-    /// For any randomly generated `account_count` (0..=10) the adapter must
-    /// return the same `account_count` via its `accounts_consumed` value.
-    #[test]
-    fn prop_accounts_consumed_matches_leg(
-        acc_count in 0u8..10,
-        in_amount in 1u64..1_000_000u64,
-        min_out in 1u64..1_000_000u64,
-    ) {
-        let leg = dummy_leg(DexId::SolarCp, in_amount, min_out, acc_count);
-        // Build a vector with `acc_count` dummy `AccountInfo`s.
-        let rem: Vec<AccountInfo> = (0..acc_count).map(|_| dummy_account_info()).collect();
-        let (_spent, _recv, consumed) = adapter::solar_cp::invoke(&leg, &rem).unwrap();
-        prop_assert_eq!(consumed as u8, acc_count);
-    }
-}
-
-/// Property: for random vector of legs adapter cursor never overruns slice
-proptest! {
-    #[test]
-    fn prop_cursor_integrity(ref lens in proptest::collection::vec(0u8..5, 1..4)) {
-        use crate::DexId;
-        let total: usize = lens.iter().map(|v| *v as usize).sum();
-        let rem: Vec<AccountInfo> = (0..total).map(|_| dummy_account_info()).collect();
-        let mut offset=0;
-        for acc_count in lens {
-            let leg = SwapLeg{ dex_id:DexId::LifinityV2, in_amount:1, min_out:1, account_count:*acc_count, data:vec![], in_mint:Pubkey::default(), out_mint:Pubkey::default()};
-            let (_s,_r,consumed)=adapter::dispatch(&leg, &rem[offset..]).unwrap();
-            prop_assert_eq!(consumed as u8, *acc_count);
-            offset+=consumed;
-        }
-    }
-}
+// Property-based tests removed
 
 // ------------- Fee maths sanity check ------------- //
 

@@ -16,6 +16,7 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"
+# cluster = "https://devnet.helius-rpc.com/?api-key=5cc0897b-9a7c-44a9-bf01-7fbe84eb82c2"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
