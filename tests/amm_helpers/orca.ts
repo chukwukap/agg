@@ -45,13 +45,13 @@ export async function buildOrcaWhirlpoolLegForPool(
   await setWhirlpoolsConfig("solanaDevnet");
 
   const rpc = createSolanaRpc(utils.provider.connection.rpcEndpoint);
-  const { instructions } = await swapInstructions(
+  const { instructions, quote } = await swapInstructions(
     rpc,
     { inputAmount: amountIn, mint: address(inputMint.toBase58()) },
     address(poolAddressStr),
     slippageBps
   );
-
+  console.log("quote", quote);
   // // Prepend the Whirlpool program account required by CPI
   // remainingAccounts.unshift({
   //   pubkey: utils.WHIRLPOOL_PROGRAM_ID,

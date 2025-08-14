@@ -45,7 +45,7 @@ describe("integration: router behaviour (devnet)", function () {
 
   it("devnet: executes Orca Whirlpool TokenA->TokenB and collects fee", async function () {
     // 2) Build Whirlpool leg for the known pool (small trade)
-    const inAmount = 50_000_000n; // 0.05 TokenA
+    const inAmount = 50_000_000n; // TokenA
     const minOut = 1n;
     const { leg, remainingAccounts } = await buildOrcaWhirlpoolLegForPool(
       inAmount,
