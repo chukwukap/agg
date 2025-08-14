@@ -66,7 +66,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     //     );
     // }
 
-    let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = cpi_accs
+    let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = rem_slice
         .iter()
         .map(|ai| anchor_lang::solana_program::instruction::AccountMeta {
             pubkey: *ai.key,

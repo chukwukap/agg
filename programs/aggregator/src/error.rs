@@ -12,7 +12,7 @@ pub enum AggregatorError {
     RemainingAccountsMismatch,
     #[msg("Fee vault mint does not match output mint")]
     FeeVaultMintMismatch,
-    #[msg("First remaining account owner mismatch (expected program id)")]
+    #[msg("Invalid program id")]
     InvalidProgramId,
     #[msg("Protocol is paused")]
     Paused,
@@ -28,4 +28,6 @@ pub enum AggregatorError {
     InvalidFeeBps,
     #[msg("Too many legs in route")]
     TooManyLegs,
+    #[msg("Numerical overflow")]
+    NumericalOverflow,
 }

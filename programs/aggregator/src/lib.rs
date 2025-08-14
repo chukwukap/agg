@@ -129,14 +129,14 @@ pub mod aggregator {
         let post_src_balance = ctx.accounts.user_source.amount;
         let delta_spent = pre_src_balance
             .checked_sub(post_src_balance)
-            .ok_or(ErrorCode::NumericalOverflow)?;
+            .ok_or(AggregatorError::NumericalOverflow)?;
         require!(
             delta_spent <= user_max_in,
             AggregatorError::TooManyTokensSpent
         );
         let delta_out = post_dest_balance
             .checked_sub(pre_dest_balance)
-            .ok_or(ErrorCode::NumericalOverflow)?;
+            .ok_or(AggregatorError::NumericalOverflow)?;
 
         // ------------------------------------------------------------------
         // Fee calculation & transfer – based on *real* output to make fee-
@@ -146,12 +146,12 @@ pub mod aggregator {
         // ------------------------------------------------------------------
         let fee_amount: u64 = ((delta_out as u128 * cfg.fee_bps as u128) / 10_000u128)
             .try_into()
-            .map_err(|_| ErrorCode::NumericalOverflow)?;
+            .map_err(|_| AggregatorError::NumericalOverflow)?;
 
         // Net amount that ends up in the user's destination account *after* fee deduction.
         let user_receive = delta_out
             .checked_sub(fee_amount)
-            .ok_or(ErrorCode::NumericalOverflow)?;
+            .ok_or(AggregatorError::NumericalOverflow)?;
 
         // Enforce the user-supplied minimum-out slippage guard using the **net** amount.
         require!(
@@ -318,12 +318,6 @@ pub struct SwapLeg {
     pub in_mint: Pubkey,
     /// Expected output SPL mint for this leg (continuity-checked by router).
     pub out_mint: Pubkey,
-}
-
-#[error_code]
-pub enum ErrorCode {
-    #[msg("Overflow")]
-    NumericalOverflow,
 }
 
 // -------------------- Events & Constants --------------------
