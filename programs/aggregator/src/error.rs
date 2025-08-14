@@ -26,4 +26,6 @@ pub enum AggregatorError {
     FeeVaultOwnerMismatch,
     #[msg("Invalid fee basis points (must be 0-10000)")]
     InvalidFeeBps,
+    #[msg("Too many legs in route")]
+    TooManyLegs,
 }

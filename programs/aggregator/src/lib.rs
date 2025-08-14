@@ -2,6 +2,7 @@
 use crate::state::Config;
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::System;
+use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::{self, Token, TokenAccount};
 
 mod adapter;
@@ -61,7 +62,19 @@ pub mod aggregator {
         // 1) Protocol pause switch
         require!(!cfg.paused, AggregatorError::Paused);
 
-        // 2) Ensure first leg consumes the tokens provided in `user_source`
+        // 2) Ensure token accounts are controlled by the caller (fail-fast)
+        require_keys_eq!(
+            ctx.accounts.user_source.owner,
+            ctx.accounts.user_authority.key(),
+            AggregatorError::Unauthorized
+        );
+        require_keys_eq!(
+            ctx.accounts.user_destination.owner,
+            ctx.accounts.user_authority.key(),
+            AggregatorError::Unauthorized
+        );
+
+        // 3) Ensure first leg consumes the tokens provided in `user_source`
         if let Some(first_leg) = legs.first() {
             require_keys_eq!(
                 first_leg.in_mint,
@@ -70,8 +83,11 @@ pub mod aggregator {
             );
         }
 
-        // 3) Empty route not allowed – protects against accidental fee burn
+        // 4) Empty route not allowed – protects against accidental fee burn
         require!(legs.len() > 0, AggregatorError::NoLegs);
+
+        // 5) Bound the number of legs
+        require!(legs.len() <= MAX_LEGS as usize, AggregatorError::TooManyLegs);
 
         let mut prev_out_mint: Option<Pubkey> = None;
 
@@ -117,6 +133,8 @@ pub mod aggregator {
         // ------------------------------------------------------------------
         // Fee calculation & transfer – based on *real* output to make fee-
         // exploitation (e.g. via hints) impossible.
+        // fee_bps is the fee in basis points (1/100 of a percent)
+        // formula: fee_amount = (delta_out * fee_bps) / 10_000
         // ------------------------------------------------------------------
         let fee_amount: u64 = ((delta_out as u128 * cfg.fee_bps as u128) / 10_000u128)
             .try_into()
@@ -149,9 +167,14 @@ pub mod aggregator {
             AggregatorError::FeeVaultMintMismatch
         );
 
+        // Validate that the provided fee_vault is the admin's ATA for the final out mint.
+        let expected_fee_vault = get_associated_token_address(
+            &cfg.admin,
+            &ctx.accounts.user_destination.mint,
+        );
         require_keys_eq!(
             ctx.accounts.fee_vault.key(),
-            cfg.fee_vault,
+            expected_fee_vault,
             AggregatorError::FeeVaultMintMismatch
         );
 
@@ -173,6 +196,17 @@ pub mod aggregator {
                 fee_amount,
             )?;
         }
+
+        // Emit an event for analytics and auditing
+        emit!(RouteExecuted {
+            user: ctx.accounts.user_authority.key(),
+            in_mint: ctx.accounts.user_source.mint,
+            out_mint: ctx.accounts.user_destination.mint,
+            total_spent: delta_spent,
+            total_out: delta_out,
+            fee_charged: fee_amount,
+            legs: legs.len() as u8,
+        });
 
         // Final state: tokens already in user_destination (minus fee). No extra action.
         Ok(())
@@ -276,6 +310,22 @@ pub enum ErrorCode {
     #[msg("Overflow")]
     NumericalOverflow,
 }
+
+// -------------------- Events & Constants --------------------
+
+#[event]
+pub struct RouteExecuted {
+    pub user: Pubkey,
+    pub in_mint: Pubkey,
+    pub out_mint: Pubkey,
+    pub total_spent: u64,
+    pub total_out: u64,
+    pub fee_charged: u64,
+    pub legs: u8,
+}
+
+/// Upper bound on route legs to keep compute and tx size predictable.
+pub const MAX_LEGS: u8 = 10;
 
 // -------------------- Governance Contexts --------------------
 

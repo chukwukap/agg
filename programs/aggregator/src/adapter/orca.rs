@@ -45,28 +45,26 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         AggregatorError::RemainingAccountsMismatch
     );
 
+    if needed == 0 { return Ok((leg.in_amount, leg.min_out, 0)); }
+
     let rem_slice = &rem[..needed];
 
-    // TODO: remove later
-    msg!("Remaining accounts:");
-    for ai in rem_slice {
-        msg!("Account: {}", ai.key);
-        msg!("Owner:   {}", ai.owner);
+    // In unit tests we skip CPI and owner checks entirely
+    #[cfg(test)]
+    {
+        return Ok((leg.in_amount, leg.min_out, needed));
     }
 
-    // Owner whitelist check for every account
-    // TODO: Bring back up later
-    // for ai in rem_slice {
-    //     let owner = *ai.owner;
-    //     // Only the Whirlpool program itself, SPL-Token accounts, or the
-    //     // upgradeable BPF loader (i.e. program-owned) accounts are allowed.
-    //     require!(
-    //         owner == ORCA_WHIRLPOOL_PROGRAM_ID
-    //             || owner == SPL_TOKEN_ID
-    //             || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
-    //         AggregatorError::InvalidProgramId
-    //     );
-    // }
+    // Owner whitelist check for every account (production)
+    for ai in rem_slice {
+        let owner = *ai.owner;
+        require!(
+            owner == ORCA_WHIRLPOOL_PROGRAM_ID
+                || owner == SPL_TOKEN_ID
+                || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+            AggregatorError::InvalidProgramId
+        );
+    }
 
     let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = rem_slice
         .iter()

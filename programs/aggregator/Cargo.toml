@@ -22,7 +22,7 @@ anchor-debug = []
 
 [dependencies]
 anchor-lang = "0.31.1"
-anchor-spl = "0.31.1"
+anchor-spl = { version = "0.31.1", features = ["associated_token", "token"] }
 bytemuck = { version = "1.14", features = ["derive"] }
 
 [dev-dependencies]
