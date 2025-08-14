@@ -90,21 +90,10 @@ export async function ensureTestConfig(mint: PublicKey, feeBps = 200) {
     await program.account.config.fetch(configPda);
     return; // already initialised
   } catch (_) {
-    // need to create feeVault ATA for the chosen mint
-    const feeVaultAta = (
-      await getOrCreateAssociatedTokenAccount(
-        provider.connection,
-        provider.wallet.payer,
-        mint,
-        provider.wallet.publicKey
-      )
-    ).address;
-
     await program.methods
       .initConfig(feeBps)
       .accounts({
         admin: provider.wallet.publicKey,
-        feeVault: feeVaultAta,
       })
       .rpc();
   }

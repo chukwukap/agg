@@ -34,9 +34,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     for ai in rem_slice {
         let owner = *ai.owner;
         require!(
-            owner == LIFINITY_PROGRAM_ID
-                || owner == SPL_TOKEN_ID
-                || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+            owner == LIFINITY_PROGRAM_ID || owner == SPL_TOKEN_ID,
             AggregatorError::InvalidProgramId
         );
     }

@@ -45,7 +45,9 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         AggregatorError::RemainingAccountsMismatch
     );
 
-    if needed == 0 { return Ok((leg.in_amount, leg.min_out, 0)); }
+    if needed == 0 {
+        return Ok((leg.in_amount, leg.min_out, 0));
+    }
 
     let rem_slice = &rem[..needed];
 
@@ -59,9 +61,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     for ai in rem_slice {
         let owner = *ai.owner;
         require!(
-            owner == ORCA_WHIRLPOOL_PROGRAM_ID
-                || owner == SPL_TOKEN_ID
-                || owner == anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+            owner == ORCA_WHIRLPOOL_PROGRAM_ID || owner == SPL_TOKEN_ID,
             AggregatorError::InvalidProgramId
         );
     }

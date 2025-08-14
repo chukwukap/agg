@@ -40,7 +40,16 @@ describe("integration: router behaviour", function () {
     mint = res.mint;
     ata = res.ata;
 
-    // await ensureTestConfig(mint); // sets fee_vault to this ATA
+    // ensure Config PDA exists with fee_bps set
+    const program = anchor.workspace.aggregator as Program<Aggregator>;
+    try {
+      await program.account.config.fetch(configPda);
+    } catch (_) {
+      await program.methods
+        .initConfig(200)
+        .accounts({ admin: provider.wallet.publicKey })
+        .rpc();
+    }
   });
 
   /** Happy path: one leg succeeds and respects slippage/net-out */
@@ -418,7 +427,7 @@ describe("integration: router behaviour", function () {
   });
 
   /** Fee-vault address mismatch (mint matches) */
-  it("fails when fee vault address != config fee_vault", async function () {
+  it("fails when fee vault address != admin ATA for out mint", async function () {
     const otherVault = await createAtaForMint(mint, provider.wallet.publicKey);
     const leg = buildDummyLeg(mint, 1000n, 900n);
 
@@ -430,7 +439,7 @@ describe("integration: router behaviour", function () {
           userAuthority: provider.wallet.publicKey,
           userSource: ata,
           userDestination: ata,
-          feeVault: otherVault, // different address but same mint
+          feeVault: otherVault, // different address but same mint (not admin ATA)
           computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
