@@ -82,6 +82,30 @@ fn adapter_errors_on_insufficient_remaining_accounts() {
     }
 }
 
+#[test]
+fn adapter_errors_on_insufficient_accounts_for_all_dexes() {
+    // For every DEX, require that providing fewer accounts than declared results in an error.
+    for &dex in ALL_DEXES {
+        let leg = dummy_leg(dex, 123, 100, 2);
+        let one = dummy_account_info();
+        let result = match dex {
+            DexId::LifinityV2 => crate::adapter::lifinity::invoke(&leg, &[one]),
+            DexId::OrcaWhirlpool => crate::adapter::orca::invoke(&leg, &[one]),
+            DexId::SolarCp => crate::adapter::solar_cp::invoke(&leg, &[one]),
+            DexId::SolarClmm => crate::adapter::solar_clmm::invoke(&leg, &[one]),
+            DexId::Invariant => crate::adapter::invariant::invoke(&leg, &[one]),
+        };
+
+        assert!(result.is_err(), "expected error for insufficient accounts: {:?}", dex);
+    }
+}
+
+#[test]
+fn max_legs_constant_is_reasonable() {
+    // Guard against accidental bumping that might blow compute.
+    assert!(crate::MAX_LEGS <= 16, "MAX_LEGS unexpectedly high");
+}
+
 // ------------- Property tests (proptest) ------------- //
 
 proptest! {
