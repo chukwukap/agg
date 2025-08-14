@@ -79,7 +79,6 @@ describe("integration: router behaviour", function () {
           userSource: tokenAAta,
           userDestination: tokenBAta,
           feeVault: tokenBAta, // final destination token
-          computeBudget: ComputeBudgetProgram.programId,
           config: configPda,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
@@ -152,7 +151,6 @@ describe("integration: router behaviour", function () {
           userSource: tokenAAta,
           userDestination: tokenBAta,
           feeVault: tokenBAta, // final destination token
-          computeBudget: ComputeBudgetProgram.programId,
           config: configPda,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
@@ -212,7 +210,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
     } catch (err) {
@@ -235,7 +232,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
     } catch (err) {
@@ -258,7 +254,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
     } catch (err) {
@@ -283,7 +278,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: other.ata, // vault mint != leg.outMint
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
     } catch (err) {
@@ -309,7 +303,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
     } catch (err) {
@@ -326,7 +319,6 @@ describe("integration: router behaviour", function () {
         userSource: ata,
         userDestination: ata,
         feeVault: ata,
-        computeBudget: ComputeBudgetProgram.programId,
       })
       .preInstructions([
         ComputeBudgetProgram.setComputeUnitLimit({ units: 1_800_000 }),
@@ -349,7 +341,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .remainingAccounts([
           { pubkey: dummyAcc.publicKey, isSigner: false, isWritable: false },
@@ -387,7 +378,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .remainingAccounts([
           {
@@ -416,7 +406,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
     } catch (err) {
@@ -442,7 +431,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: otherVault, // different address but same mint (not admin ATA)
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .rpc();
     } catch (err) {
@@ -472,7 +460,6 @@ describe("integration: router behaviour", function () {
           userSource: ata,
           userDestination: ata,
           feeVault: ata,
-          computeBudget: ComputeBudgetProgram.programId,
         })
         .remainingAccounts([
           { pubkey: rogue.publicKey, isSigner: false, isWritable: false },
