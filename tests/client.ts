@@ -11,10 +11,23 @@ import {
   SolanaRpcSubscriptionsApi,
   sendAndConfirmTransactionFactory,
   createKeyPairSignerFromBytes,
+  Address,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  signTransactionMessageWithSigners,
 } from "@solana/kit";
 import { ANCHOR_PROVIDER_URL } from "./utils";
 import { setPayerFromBytes } from "@orca-so/whirlpools";
 import secret from "../wallet.json";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstructionAsync,
+  TOKEN_PROGRAM_ADDRESS,
+} from "@solana-program/token";
 
 export type Client = {
   rpc: Rpc<SolanaRpcApi>;
@@ -24,6 +37,11 @@ export type Client = {
     typeof sendAndConfirmTransactionFactory
   >;
   airdrop: ReturnType<typeof airdropFactory>;
+  getOrCreateAta: (
+    payerSigner: TransactionSigner & MessageSigner,
+    mint: Address,
+    ownerAddress: Address
+  ) => Promise<Address>;
 };
 
 let client: Client | undefined;
@@ -46,6 +64,46 @@ export async function createClient(): Promise<Client> {
     });
     const airdrop = airdropFactory({ rpc, rpcSubscriptions });
 
+    async function getOrCreateAta(
+      payerSigner: TransactionSigner & MessageSigner,
+      mint: Address,
+      ownerAddress: Address
+    ): Promise<Address> {
+      // 1) Derive ATA PDA
+      const [ataPda] = await findAssociatedTokenPda({
+        mint,
+        owner: ownerAddress,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      });
+
+      // 2) Build instruction to create ATA if it does not exist
+      const createAtaIx =
+        await getCreateAssociatedTokenIdempotentInstructionAsync({
+          payer: payerSigner,
+          owner: ownerAddress,
+          mint,
+        });
+      const latestBlockhash = (await rpc.getLatestBlockhash().send()).value;
+
+      // 3) Build and send the transaction
+      const transactionMessage = pipe(
+        createTransactionMessage({ version: 0 }),
+        (tx) => setTransactionMessageFeePayerSigner(payerSigner, tx),
+        (tx) =>
+          setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+        (tx) => appendTransactionMessageInstructions([createAtaIx], tx)
+      );
+
+      const transaction = await signTransactionMessageWithSigners(
+        transactionMessage
+      );
+      await sendAndConfirmTransaction(transaction, {
+        commitment: "confirmed",
+      });
+
+      return ataPda;
+    }
+
     // Create a wallet with lamports.
     // const wallet = await generateKeyPairSigner();
     // await airdrop({
@@ -61,6 +119,7 @@ export async function createClient(): Promise<Client> {
       wallet,
       sendAndConfirmTransaction,
       airdrop,
+      getOrCreateAta,
     };
   }
   return client;

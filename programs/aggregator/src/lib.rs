@@ -266,7 +266,7 @@ pub mod aggregator {
 
 #[derive(Accounts)]
 pub struct RouteAccounts<'info> {
-    // User
+    /// User
     #[account(signer)]
     pub user_authority: Signer<'info>,
 
@@ -275,7 +275,7 @@ pub struct RouteAccounts<'info> {
     #[account(mut)]
     pub user_destination: Account<'info, TokenAccount>,
 
-    // Fee collector
+    /// Fee collector
     #[account(mut)]
     pub fee_vault: Account<'info, TokenAccount>,
 
@@ -283,7 +283,7 @@ pub struct RouteAccounts<'info> {
     #[account(seeds = [b"config"], bump = config.bump)]
     pub config: Account<'info, Config>,
 
-    // Programs
+    /// Programs
     pub token_program: Program<'info, Token>,
 }
 
