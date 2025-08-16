@@ -57,17 +57,16 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         return Ok((leg.in_amount, leg.min_out, needed));
     }
 
-    // Expect the first account to be the Whirlpool program id for CPI; exclude it from metas
-    let (program_ai, cpi_accs) = rem_slice
-        .split_first()
-        .ok_or(AggregatorError::RemainingAccountsMismatch)?;
-    require_keys_eq!(
-        *program_ai.key,
-        ORCA_WHIRLPOOL_PROGRAM_ID,
-        AggregatorError::InvalidProgramId
-    );
+    // Owner whitelist check for every account (production)
+    // for ai in rem_slice {
+    //     let owner = *ai.owner;
+    //     require!(
+    //         owner == ORCA_WHIRLPOOL_PROGRAM_ID || owner == SPL_TOKEN_ID,
+    //         AggregatorError::InvalidProgramId
+    //     );
+    // }
 
-    let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = cpi_accs
+    let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = rem_slice
         .iter()
         .map(|ai| anchor_lang::solana_program::instruction::AccountMeta {
             pubkey: *ai.key,
@@ -82,11 +81,7 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         data: leg.data.clone(),
     };
 
-    // Compose CPI account-infos: program-id first, then CPI accounts
-    let mut infos: Vec<AccountInfo<'info>> = Vec::with_capacity(1 + cpi_accs.len());
-    infos.push(program_ai.clone());
-    infos.extend_from_slice(cpi_accs);
-    program::invoke(&ix, &infos)?;
+    program::invoke(&ix, rem_slice)?;
 
     Ok((leg.in_amount, leg.min_out, needed))
 }

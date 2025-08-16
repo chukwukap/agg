@@ -15,8 +15,8 @@ aggregator = "7XEqP1W4vwMtPfkkgs97RnQSeksJHT1jSFuJvg3zm2Hs"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "pnpm ts-mocha tests/**/*.test.ts"

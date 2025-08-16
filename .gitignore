@@ -7,3 +7,4 @@ test-ledger
 .test-ledger
 .yarn
 keys/
+wallet.json

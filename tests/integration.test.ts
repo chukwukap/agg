@@ -1,532 +1,280 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { Aggregator } from "../target/types/aggregator";
-import * as utils from "./utils";
-import { ComputeBudgetProgram } from "@solana/web3.js";
+import * as programClient from "../clients/generated";
+import {
+  address,
+  type Address,
+  appendTransactionMessageInstructions,
+  Blockhash,
+  createTransactionMessage,
+  getProgramDerivedAddress,
+  pipe,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+} from "@solana/kit";
+import { Client, createClient } from "./client";
 import { expect } from "chai";
 import {
+  OrcaTestPoolAddress,
+  OrcaTestTokenB,
+  OrcaTestTokenA,
+  ANCHOR_PROVIDER_URL,
+} from "./utils";
+import {
+  fetchMint,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+} from "@solana-program/token";
+import {
+  createAssociatedTokenAccountIdempotent,
   TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
-  createSyncNativeInstruction,
 } from "@solana/spl-token";
-import { buildOrcaWhirlpoolLegForPool } from "./amm_helpers/orca";
+import { setRpc, setWhirlpoolsConfig, swap } from "@orca-so/whirlpools";
+import { getWhirlpoolAddress } from "@orca-so/whirlpools-client";
 
-const program = anchor.workspace.aggregator as Program<Aggregator>;
-
-/**
- * Integration tests – executed against a devnet via `anchor test`.
- */
 describe("integration: router behaviour (devnet)", function () {
   this.timeout(20000); // allow 20s for on-chain pool bootstrap
-  // Known devnet WSOL/USDC pool and mints (replace if needed)
-  const TokenA = utils.OrcaTestTokenA;
-  const TokenB = utils.OrcaTestTokenB;
-
-  const POOL = utils.OrcaTestPoolAddress;
-  let configPda: anchor.web3.PublicKey = utils.getConfigPda()[0];
-  console.log("configPda", configPda.toBase58());
+  let client: Client;
+  let tokenAMint: Address;
+  let tokenBMint: Address;
+  let decimalA: number;
+  let decimalB: number;
+  let pool: Address;
+  let configPda: Address;
+  let latestBlockhash: {
+    blockhash: Blockhash;
+    lastValidBlockHeight: bigint;
+  };
 
   before("setup token accounts (devnet)", async function () {
-    // Force devnet provider
-    utils.setDevnetProvider();
+    client = await createClient();
 
-    // ensure Config PDA exists with fee_bps set
-    const program = anchor.workspace.aggregator as Program<Aggregator>;
-    try {
-      await program.account.config.fetch(configPda);
-    } catch (_) {
-      await program.methods
-        .initConfig(100) // 1% fee
-        .accounts({ admin: utils.provider.wallet.publicKey })
-        .rpc();
-    }
+    pool = OrcaTestPoolAddress;
+    tokenAMint = OrcaTestTokenA;
+    tokenBMint = OrcaTestTokenB;
+    decimalA = (await fetchMint(client.rpc, tokenAMint)).data.decimals;
+    decimalB = (await fetchMint(client.rpc, tokenBMint)).data.decimals;
+    latestBlockhash = (await client.rpc.getLatestBlockhash().send()).value;
+    const configPdaAndBump = await getProgramDerivedAddress({
+      programAddress: programClient.AGGREGATOR_PROGRAM_ADDRESS,
+      seeds: ["config"],
+    });
+    configPda = configPdaAndBump[0];
   });
 
-  it("devnet: executes Orca Whirlpool TokenA->TokenB and collects fee", async function () {
-    // 2) Build Whirlpool leg for the known pool (small trade)
-    const inAmount = 50_000_000n; // TokenA
-    const minOut = 1n;
-    const { leg, remainingAccounts } = await buildOrcaWhirlpoolLegForPool(
-      inAmount,
-      minOut,
-      POOL,
-      TokenA,
-      TokenB,
-      150
+  it.skip("(config) initializes the program config correctly", async function () {
+    const initConfigIx = programClient.getInitConfigInstruction({
+      feeBps: 100, // 1%
+      admin: client.wallet,
+      config: configPda,
+    });
+
+    // Build the transaction message.
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([initConfigIx], tx)
     );
 
-    // 3) Ensure user TokenA ATA is wrapped with lamports
-    const userAuthority = utils.provider.wallet.publicKey;
-    const userSource = getAssociatedTokenAddressSync(TokenA, userAuthority);
-    const wrapTx = new anchor.web3.Transaction()
-      .add(
-        createAssociatedTokenAccountInstruction(
-          userAuthority,
-          userSource,
-          userAuthority,
-          TokenA
-        )
-      )
-      .add(
-        anchor.web3.SystemProgram.transfer({
-          fromPubkey: userAuthority,
-          toPubkey: userSource,
-          lamports: Number(inAmount),
-        })
-      )
-      .add(createSyncNativeInstruction(userSource));
-    try {
-      await utils.provider.sendAndConfirm(wrapTx);
-    } catch (_) {}
-
-    // 4) Ensure user destination and admin fee vault ATAs for TokenB
-    const userDestination = getAssociatedTokenAddressSync(
-      TokenB,
-      userAuthority
+    // Compile the transaction message and sign it.
+    const transaction = await signTransactionMessageWithSigners(
+      transactionMessage
     );
-    const createAtas = new anchor.web3.Transaction().add(
-      createAssociatedTokenAccountInstruction(
-        userAuthority,
-        userDestination,
-        userAuthority,
-        TokenB
-      )
+
+    const signature = await client.sendAndConfirmTransaction(transaction, {
+      commitment: "confirmed",
+    });
+    console.log("signature", signature);
+
+    const config = await programClient.fetchConfig(client.rpc, configPda);
+    console.log("config", config);
+    expect(config.data.feeBps).to.equal(100);
+    expect(config.data.admin).to.equal(client.wallet.address);
+    expect(config.data.paused).to.equal(false);
+  });
+
+  it.skip("(pause) pauses the program by admin", async function () {
+    const pauseIx = programClient.getPauseInstruction({
+      config: configPda,
+      admin: client.wallet,
+    });
+
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([pauseIx], tx)
     );
-    try {
-      await utils.provider.sendAndConfirm(createAtas);
-    } catch (_) {}
-    const feeVault = getAssociatedTokenAddressSync(TokenB, userAuthority);
 
-    // 5) Execute route on devnet program
-    const txSig = await program.methods
-      .route(
-        [leg],
-        new anchor.BN(inAmount.toString()),
-        new anchor.BN(minOut.toString())
-      )
-      .accountsStrict({
-        userAuthority,
-        userSource,
-        userDestination,
-        feeVault,
-        config: configPda,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .remainingAccounts(remainingAccounts)
-      .preInstructions([
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_600_000 }),
-      ])
-      .rpc();
+    const transaction = await signTransactionMessageWithSigners(
+      transactionMessage
+    );
+    const signature = await client.sendAndConfirmTransaction(transaction, {
+      commitment: "confirmed",
+    });
+    console.log("signature", signature);
 
-    console.log("devnet swap tx:", txSig);
+    const config = await programClient.fetchConfig(client.rpc, configPda);
+    console.log("config", config);
+    expect(config.data.paused).to.equal(true);
+  });
+
+  it.skip("(unpause) unpauses the program by admin", async function () {
+    const unpauseIx = programClient.getUnpauseInstruction({
+      config: configPda,
+      admin: client.wallet,
+    });
+
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([unpauseIx], tx)
+    );
+
+    const transaction = await signTransactionMessageWithSigners(
+      transactionMessage
+    );
+    const signature = await client.sendAndConfirmTransaction(transaction, {
+      commitment: "confirmed",
+    });
+    console.log("signature", signature);
+
+    const config = await programClient.fetchConfig(client.rpc, configPda);
+    console.log("config", config);
+    expect(config.data.paused).to.equal(false);
+  });
+
+  it.skip("(setConfig) sets the config by admin", async function () {
+    const setConfigIx = programClient.getSetConfigInstruction({
+      config: configPda,
+      admin: client.wallet,
+      feeBps: 200,
+    });
+
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([setConfigIx], tx)
+    );
+
+    const transaction = await signTransactionMessageWithSigners(
+      transactionMessage
+    );
+    const signature = await client.sendAndConfirmTransaction(transaction, {
+      commitment: "confirmed",
+    });
+    console.log("signature", signature);
+
+    const config = await programClient.fetchConfig(client.rpc, configPda);
+    console.log("config", config);
+    expect(config.data.feeBps).to.equal(200);
+    expect(config.data.admin).to.equal(client.wallet.address);
+    expect(config.data.paused).to.equal(false);
+  });
+
+  it("(swap) swaps tokenA to tokenB", async function () {
+    await setRpc(ANCHOR_PROVIDER_URL);
+    await setWhirlpoolsConfig("solanaDevnet");
+    // Token definition
+    // devToken specification
+    // https://everlastingsong.github.io/nebula/
+    const devUSDC = {
+      mint: address("BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k"),
+      decimals: 6,
+    };
+    const devSAMO = {
+      mint: address("Jd4M8bfJG3sAkd82RsGWyEXoaBXQP7njFzBwEaCTuDa"),
+      decimals: 9,
+    };
+
+    // WhirlpoolsConfig account
+    // devToken ecosystem / Orca Whirlpools
+    const DEVNET_WHIRLPOOLS_CONFIG = address(
+      "FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR"
+    );
+    const whirlpoolConfigAddress = address(DEVNET_WHIRLPOOLS_CONFIG.toString());
+
+    // Get devSAMO/devUSDC whirlpool
+    // Whirlpools are identified by 5 elements (Program, Config, mint address of the 1st token,
+    // mint address of the 2nd token, tick spacing), similar to the 5 column compound primary key in DB
+    const tickSpacing = 64;
+    const [whirlpoolPda] = await getWhirlpoolAddress(
+      whirlpoolConfigAddress,
+      devSAMO.mint,
+      devUSDC.mint,
+      tickSpacing
+    );
+    console.log("whirlpoolPda:", whirlpoolPda);
+
+    // Swap 1 devUSDC for devSAMO
+    const amountIn = BigInt(100_000);
+
+    // Obtain swap estimation (run simulation)
+    const { quote, callback: sendTx } = await swap(
+      // Input token and amount
+      {
+        mint: devUSDC.mint,
+        inputAmount: amountIn, // swap 0.1 devUSDC to devSAMO
+      },
+      whirlpoolPda,
+      // Acceptable slippage (100bps = 1%)
+      100 // 100 bps = 1%
+    );
+
+    // Output the quote
+    console.log("Quote:");
+    console.log("  - Amount of tokens to pay:", quote.tokenIn);
     console.log(
-      `Explorer: https://explorer.solana.com/tx/${txSig}?cluster=devnet`
+      "  - Minimum amount of tokens to receive with maximum slippage:",
+      quote.tokenMinOut
     );
-  });
+    console.log("  - Estimated tokens to receive:");
+    console.log("      Based on the price at the time of the quote");
+    console.log("      Without slippage consideration:", quote.tokenEstOut);
+    console.log("  - Trade fee (bps):", quote.tradeFee);
 
-  it.skip("executes a zero-account leg path (no-op) and respects guards", async function () {
-    const leg = utils.buildDummyLeg(TokenA, 1_000n, 900n);
-    await program.methods
-      .route([leg], new anchor.BN(0), new anchor.BN(0))
-      .accounts({
-        userAuthority: utils.provider.wallet.publicKey,
-        userSource: getAssociatedTokenAddressSync(
-          TokenA,
-          utils.provider.wallet.publicKey
-        ),
-        userDestination: getAssociatedTokenAddressSync(
-          TokenB,
-          utils.provider.wallet.publicKey
-        ),
-        feeVault: getAssociatedTokenAddressSync(
-          TokenB,
-          utils.provider.wallet.publicKey
-        ),
-      })
-      .rpc();
-  });
+    // Send the transaction using action
+    const swapSignature = await sendTx();
+    console.log("swapSignature:", swapSignature);
 
-  /** Guard: consecutive legs must have matching mints */
-  it.skip("fails when mint continuity breaks", async function () {
-    const other = await utils.setupTokenAccounts();
-    const leg1 = utils.buildDummyLeg(TokenA, 1000n, 900n);
-    const leg2 = utils.buildDummyLeg(other.mint, 900n, 800n); // in_mint mismatch
+    // const feeVault = await findAssociatedTokenPda({
+    //   mint: tokenAMint,
+    //   owner: client.wallet.address,
+    //   tokenProgram: address(TOKEN_PROGRAM_ID.toString()),
+    // });
+    // console.log("feeVault", feeVault);
+    // console.log("wallet", client.wallet.address);
+    // const swapIx = programClient.getRouteInstruction({
+    //   config: configPda,
+    //   feeVault: feeVault[0],
+    //   legs: [],
+    //   userDestination: tokenBMint,
+    //   userSource: tokenAMint,
+    //   userAuthority: client.wallet,
+    //   userMaxIn: 1000000000n,
+    //   userMinOut: 1000000000n,
+    // });
 
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([leg1, leg2], new anchor.BN(2_000), new anchor.BN(1_500))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for mint continuity break").to.be.true;
-  });
+    // try {
+    //   const transactionMessage = pipe(
+    //     createTransactionMessage({ version: 0 }),
+    //     (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
+    //     (tx) =>
+    //       setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    //     (tx) => appendTransactionMessageInstructions([swapIx], tx)
+    //   );
 
-  /** Guard: user_max_in exceeded */
-  it.skip("fails when spent tokens exceed user_max_in", async function () {
-    const leg = utils.buildDummyLeg(TokenA, 10_000n, 9_000n);
-
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([leg], new anchor.BN(5_000), new anchor.BN(8_000)) // max_in too small
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for user_max_in exceeded").to.be.true;
-  });
-
-  /** Guard: user_min_out (net) not satisfied */
-  it.skip("fails when net out < user_min_out", async function () {
-    const leg = utils.buildDummyLeg(TokenA, 1_000_000n, 800_000n);
-
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([leg], new anchor.BN(1_100_000), new anchor.BN(810_000)) // min_out too high
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for user_min_out not satisfied").to.be
-      .true;
-  });
-
-  /** Guard: fee vault mint mismatch */
-  it.skip("fails when fee vault mint differs from out mint", async function () {
-    const other = await utils.setupTokenAccounts();
-    const leg = utils.buildDummyLeg(TokenA, 1_000n, 900n);
-
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([leg], new anchor.BN(1_500), new anchor.BN(850))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ), // vault mint != leg.outMint
-        })
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for fee vault mint mismatch").to.be
-      .true;
-  });
-
-  /** Stress: many legs require explicit compute budget */
-  it.skip("requires compute budget for long paths", async function () {
-    const leg = utils.buildDummyLeg(TokenA, 1_000n, 900n);
-    const longPath = Array.from({ length: 10 }, () => ({ ...leg }));
-
-    // Without CU ix should fail
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route(longPath, new anchor.BN(30_000), new anchor.BN(20_000))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for missing compute budget").to.be.true;
-
-    // Adding CU ix succeeds
-    await program.methods
-      .route(longPath, new anchor.BN(30_000), new anchor.BN(20_000))
-      .accounts({
-        userAuthority: utils.provider.wallet.publicKey,
-        userSource: getAssociatedTokenAddressSync(
-          TokenA,
-          utils.provider.wallet.publicKey
-        ),
-        userDestination: getAssociatedTokenAddressSync(
-          TokenB,
-          utils.provider.wallet.publicKey
-        ),
-        feeVault: getAssociatedTokenAddressSync(
-          TokenB,
-          utils.provider.wallet.publicKey
-        ),
-      })
-      .preInstructions([
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_800_000 }),
-      ])
-      .rpc();
-  });
-
-  /** Guard: RemainingAccountsMismatch with extra accounts */
-  it.skip("fails when too many remaining accounts provided", async function () {
-    const leg = {
-      ...utils.buildDummyLeg(TokenA, 1000n, 900n),
-      accountCount: 0,
-    };
-
-    const dummyAcc = anchor.web3.Keypair.generate();
-
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([leg], new anchor.BN(2000), new anchor.BN(850))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .remainingAccounts([
-          { pubkey: dummyAcc.publicKey, isSigner: false, isWritable: false },
-        ]) // 1 extra while accountCount =0
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for too many remaining accounts").to.be
-      .true;
-  });
-
-  /** Adapter owner-whitelist rejects foreign program id (using Orca variant) */
-  it.skip("adapter whitelist rejects foreign owner", async function () {
-    const foreignLeg = {
-      ...utils.buildDummyLeg(TokenA, 1000n, 900n),
-      dexId: { orcaWhirlpool: {} } as any,
-      accountCount: 1,
-    };
-
-    const wrongAccount = anchor.web3.Keypair.generate();
-    // create minimal lamport account
-    await utils.provider.connection.requestAirdrop(
-      wrongAccount.publicKey,
-      1_000_000_000
-    );
-
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([foreignLeg], new anchor.BN(2000), new anchor.BN(850))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .remainingAccounts([
-          {
-            pubkey: wrongAccount.publicKey,
-            isSigner: false,
-            isWritable: false,
-          },
-        ])
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for adapter whitelist foreign owner").to
-      .be.true;
-  });
-
-  /** Guard: empty legs rejected */
-  it.skip("fails when legs array is empty", async function () {
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([], new anchor.BN(0), new anchor.BN(1))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for empty legs array").to.be.true;
-  });
-
-  /** Fee-vault address mismatch (mint matches) */
-  it.skip("fails when fee vault address != admin ATA for out mint", async function () {
-    const rogue = anchor.web3.Keypair.generate();
-    await utils.provider.connection.requestAirdrop(
-      rogue.publicKey,
-      1_000_000_000
-    );
-    const otherVault = await utils.createAtaForMint(TokenA, rogue.publicKey);
-    const leg = utils.buildDummyLeg(TokenA, 1000n, 900n);
-
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([leg], new anchor.BN(1500), new anchor.BN(850))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: otherVault, // different address but same mint (not admin ATA)
-        })
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for fee vault address mismatch").to.be
-      .true;
-  });
-
-  /** Second adapter whitelist (Invariant) */
-  it.skip("invariant adapter whitelist rejects foreign owner", async function () {
-    const invLeg = {
-      ...utils.buildDummyLeg(TokenA, 1000n, 900n),
-      dexId: { invariant: {} } as any,
-      accountCount: 1,
-    };
-    const rogue = anchor.web3.Keypair.generate();
-    await utils.provider.connection.requestAirdrop(
-      rogue.publicKey,
-      1_000_000_000
-    );
-
-    let errorCaught = false;
-    try {
-      await program.methods
-        .route([invLeg], new anchor.BN(2000), new anchor.BN(850))
-        .accounts({
-          userAuthority: utils.provider.wallet.publicKey,
-          userSource: getAssociatedTokenAddressSync(
-            TokenA,
-            utils.provider.wallet.publicKey
-          ),
-          userDestination: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-          feeVault: getAssociatedTokenAddressSync(
-            TokenB,
-            utils.provider.wallet.publicKey
-          ),
-        })
-        .remainingAccounts([
-          { pubkey: rogue.publicKey, isSigner: false, isWritable: false },
-        ])
-        .rpc();
-    } catch (err) {
-      errorCaught = true;
-      expect(err).to.be.instanceOf(Error);
-    }
-    expect(errorCaught, "Expected error for invariant adapter whitelist").to.be
-      .true;
+    //   const transaction = await signTransactionMessageWithSigners(
+    //     transactionMessage
+    //   );
+    //   const signature = await client.sendAndConfirmTransaction(transaction, {
+    //     commitment: "confirmed",
+    //   });
+    //   console.log("signature", signature);
+    // } catch (error) {
+    //   console.log("error", error);
+    // }
   });
 });

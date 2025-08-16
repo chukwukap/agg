@@ -5,14 +5,26 @@
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "validator": "solana-test-validator --clone LfacfEjtujQTWBXZVzgkiPBw7Mt4guHSsmAi7y3cycL --clone whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc --clone sooGfQwJ6enHfLTPfasFZtFR7DgobkJD77maDNEqGkD --clone CLsiWisG9Ek7dFgD8ENYtxLBbMEVxB64M3wD4f2XuZSn --clone iNvTyprs4TX8m6UeUEkeqDFjAL9zRCRWcexK9Sd4WEU --url https://eclipse.helius-rpc.com --reset",
     "deploy_amm": "solana program deploy amms/orca.so && solana program deploy amms/lifinity.so && solana program deploy amms/solar_cp.so && solana program deploy amms/invariant.so",
-    "test": "pnpm ts-mocha tests/**/*.test.ts -w --watch-files '**/*.ts'"
+    "test": "pnpm ts-mocha tests/**/*.test.ts -w --watch-files '**/*.ts'",
+    "generate-client": "pnpm dlx tsx create-codama-client.ts"
   },
   "dependencies": {
+    "@codama/nodes-from-anchor": "^1.2.3",
+    "@codama/renderers": "^1.0.29",
+    "@codama/visitors-core": "^1.3.1",
     "@coral-xyz/anchor": "^0.31.1",
     "@lifinity/sdk-v2": "^2.0.3",
+    "@metaplex-foundation/umi": "^1.2.0",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
+    "@orca-so/tx-sender": "^1.0.2",
     "@orca-so/whirlpools": "^3.0.0",
-    "@solana/kit": "2",
-    "@solana/web3.js": "^1.98.2"
+    "@orca-so/whirlpools-client": "^3.0.0",
+    "@orca-so/whirlpools-core": "^2.0.0",
+    "@solana-program/system": "^0.7.0",
+    "@solana-program/token": "^0.5.1",
+    "@solana/kit": "^2.3.0",
+    "codama": "^1.3.1",
+    "solana-kite": "^1.5.3"
   },
   "devDependencies": {
     "@solana/spl-token": "^0.4.13",
