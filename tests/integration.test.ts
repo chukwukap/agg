@@ -20,9 +20,19 @@ import {
   swap,
   swapInstructions,
 } from "@orca-so/whirlpools";
-import { getWhirlpoolAddress } from "@orca-so/whirlpools-client";
-import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
-import { getSwapInstruction } from "../clients/generated/orca";
+import {
+  AccountsType,
+  fetchAllMaybeTickArray,
+  fetchWhirlpool,
+  fetchOracle,
+  getOracleAddress,
+  getSwapV2Instruction,
+  getTickArrayAddress,
+  getWhirlpoolAddress,
+} from "@orca-so/whirlpools-client";
+import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+import { buildAndSendTransaction } from "@orca-so/tx-sender";
 
 describe("integration: router behaviour (devnet)", function () {
   this.timeout(20000); // allow 20s for on-chain pool bootstrap
@@ -156,7 +166,7 @@ describe("integration: router behaviour (devnet)", function () {
     expect(config.data.admin).to.equal(client.wallet.address);
     expect(config.data.paused).to.equal(false);
   });
-  it.only("(swap) swaps tokenA to tokenB", async function () {
+  it("(swap) swaps tokenA to tokenB", async function () {
     // Initialize a connection to the RPC and read in private key
     await setRpc(utils.ANCHOR_PROVIDER_URL);
     await setWhirlpoolsConfig("solanaDevnet");
@@ -194,21 +204,78 @@ describe("integration: router behaviour (devnet)", function () {
 
     // Swap 1 devUSDC for devSAMO
     const amountIn = BigInt(100_000);
-
-    // Obtain swap estimation (run simulation)
-    const { quote, instructions } = await swapInstructions(
+    const { instructions, quote } = await swapInstructions(
       client.rpc,
-      // Input token and amount
       {
         mint: devUSDC.mint,
-        inputAmount: amountIn, // swap 0.1 devUSDC to devSAMO
+        inputAmount: amountIn,
       },
       whirlpoolPda,
-      // Acceptable slippage (100bps = 1%)
-      100 // 100 bps = 1%
+      100,
+      client.wallet
     );
 
-    console.log("instructions:", JSON.stringify(instructions, null, 2));
+    const cfg = await programClient.fetchConfig(client.rpc, configPda);
+
+    const feeVaultAta = await client.getOrCreateAta(
+      client.wallet,
+      devSAMO.mint,
+      cfg.address
+    );
+    const orcaSwapIx = instructions[instructions.length - 1];
+    const orcaRemainingForLeg = [
+      ...orcaSwapIx.accounts,
+      {
+        address: orcaSwapIx.programAddress,
+        role: 0,
+      },
+    ];
+    const orcaSwapLeg: programClient.SwapLeg = {
+      dexId: programClient.DexId.OrcaWhirlpool,
+      inAmount: amountIn,
+      minOut: quote.tokenMinOut,
+      accountCount: orcaSwapIx.accounts.length, // <-- IMPORTANT
+      data: orcaSwapIx.data, // raw CPI payload for Orca
+      inMint: devUSDC.mint,
+      outMint: devSAMO.mint,
+    };
+    const routeIx = programClient.getRouteInstruction({
+      config: configPda,
+      feeVault: feeVaultAta,
+      legs: [orcaSwapLeg],
+      userDestination: userDstAta,
+      userSource: userSrcAta,
+      userAuthority: client.wallet,
+      userMaxIn: quote.tokenIn,
+      userMinOut: quote.tokenMinOut,
+    });
+
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions(instructions, tx)
+    );
+
+    const transaction = await signTransactionMessageWithSigners(
+      transactionMessage
+    );
+    const signature = await client.sendAndConfirmTransaction(transaction, {
+      commitment: "confirmed",
+    });
+    console.log("signature", signature);
+
+    // // Obtain swap estimation (run simulation)
+    // const { quote, callback: sendTx } = await swap(
+    //   // Input token and amount
+    //   {
+    //     mint: devUSDC.mint,
+    //     inputAmount: amountIn, // swap 0.1 devUSDC to devSAMO
+    //   },
+    //   whirlpoolPda,
+    //   // Acceptable slippage (100bps = 1%)
+    //   100 // 100 bps = 1%
+    // );
 
     // Output the quote
     console.log("Quote:");
