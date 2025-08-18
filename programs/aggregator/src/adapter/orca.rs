@@ -37,15 +37,21 @@ use crate::{error::AggregatorError, SwapLeg};
 pub const ORCA_WHIRLPOOL_PROGRAM_ID: Pubkey =
     pubkey!("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc");
 
-/// Invoke Orca Whirlpool `swap` instruction.
+/// Invoke Orca Whirlpool `swap` instruction with detailed logging for traceability and debugging.
 pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, u64, usize)> {
     let needed = leg.account_count as usize;
+    msg!(
+        "Orca adapter: preparing to invoke swap. Required accounts: {}",
+        needed
+    );
+
     require!(
         rem.len() >= needed,
         AggregatorError::RemainingAccountsMismatch
     );
 
     if needed == 0 {
+        msg!("Orca adapter: No accounts required for this leg, returning early.");
         return Ok((leg.in_amount, leg.min_out, 0));
     }
 
@@ -54,7 +60,21 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
     // In unit tests we skip CPI and owner checks entirely
     #[cfg(test)]
     {
+        msg!("Orca adapter: Test mode, skipping CPI and owner checks.");
         return Ok((leg.in_amount, leg.min_out, needed));
+    }
+
+    // Log account keys and signer/writable status for traceability
+    msg!("Orca adapter: Account list for CPI:");
+    for (i, ai) in rem_slice.iter().enumerate() {
+        msg!(
+            "  [{}] {} | signer: {} | writable: {} | owner: {}",
+            i,
+            ai.key,
+            ai.is_signer,
+            ai.is_writable,
+            ai.owner
+        );
     }
 
     // Owner whitelist check for every account (production)
@@ -75,13 +95,35 @@ pub fn invoke<'info>(leg: &SwapLeg, rem: &[AccountInfo<'info>]) -> Result<(u64, 
         })
         .collect();
 
+    msg!(
+        "Orca adapter: Building CPI instruction. in_amount: {}, min_out: {}, data_len: {}",
+        leg.in_amount,
+        leg.min_out,
+        leg.data.len()
+    );
+
     let ix = Instruction {
         program_id: ORCA_WHIRLPOOL_PROGRAM_ID,
         accounts: metas,
         data: leg.data.clone(),
     };
 
-    program::invoke(&ix, rem_slice)?;
+    msg!("Orca adapter: Invoking Orca Whirlpool program via CPI...");
+    let cpi_result = program::invoke(&ix, rem_slice);
 
-    Ok((leg.in_amount, leg.min_out, needed))
+    match cpi_result {
+        Ok(_) => {
+            msg!(
+                "Orca adapter: CPI successful. Spent: {}, Received: {}, Accounts consumed: {}",
+                leg.in_amount,
+                leg.min_out,
+                needed
+            );
+            Ok((leg.in_amount, leg.min_out, needed))
+        }
+        Err(e) => {
+            msg!("Orca adapter: CPI failed with error: {:?}", e);
+            Err(e.into())
+        }
+    }
 }

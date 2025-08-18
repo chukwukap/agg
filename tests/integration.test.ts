@@ -1,4 +1,4 @@
-import * as programClient from "../clients/generated";
+import * as programClient from "../clients/generated/aggregator";
 import {
   address,
   type Address,
@@ -17,10 +17,12 @@ import * as utils from "./utils";
 import {
   setRpc,
   setWhirlpoolsConfig,
+  swap,
   swapInstructions,
 } from "@orca-so/whirlpools";
 import { getWhirlpoolAddress } from "@orca-so/whirlpools-client";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
+import { getSwapInstruction } from "../clients/generated/orca";
 
 describe("integration: router behaviour (devnet)", function () {
   this.timeout(20000); // allow 20s for on-chain pool bootstrap
@@ -154,10 +156,11 @@ describe("integration: router behaviour (devnet)", function () {
     expect(config.data.admin).to.equal(client.wallet.address);
     expect(config.data.paused).to.equal(false);
   });
-
-  it("(swap) swaps tokenA to tokenB", async function () {
+  it.only("(swap) swaps tokenA to tokenB", async function () {
+    // Initialize a connection to the RPC and read in private key
     await setRpc(utils.ANCHOR_PROVIDER_URL);
     await setWhirlpoolsConfig("solanaDevnet");
+
     // Token definition
     // devToken specification
     // https://everlastingsong.github.io/nebula/
@@ -195,6 +198,7 @@ describe("integration: router behaviour (devnet)", function () {
     // Obtain swap estimation (run simulation)
     const { quote, instructions } = await swapInstructions(
       client.rpc,
+      // Input token and amount
       {
         mint: devUSDC.mint,
         inputAmount: amountIn, // swap 0.1 devUSDC to devSAMO
@@ -203,88 +207,167 @@ describe("integration: router behaviour (devnet)", function () {
       // Acceptable slippage (100bps = 1%)
       100 // 100 bps = 1%
     );
-    // 1) Build the Orca swap instruction using the Whirlpool kit (already done)
-    const orcaSwapIx = instructions[instructions.length - 1]; // has { programAddress, accounts[], data }
-    const orcaProgram = orcaSwapIx.programAddress; // Whirlpool program id (must be included as an AccountMeta)
-    const orcaMetas = orcaSwapIx.accounts.map((meta) =>
-      meta.address === SYSTEM_PROGRAM_ADDRESS
-        ? {
-            ...meta,
-            address: client.wallet.address,
-            signer: client.wallet,
-          }
-        : meta
+
+    console.log("instructions:", JSON.stringify(instructions, null, 2));
+
+    // Output the quote
+    console.log("Quote:");
+    console.log("  - Amount of tokens to pay:", quote.tokenIn);
+    console.log(
+      "  - Minimum amount of tokens to receive with maximum slippage:",
+      quote.tokenMinOut
     );
+    console.log("  - Estimated tokens to receive:");
+    console.log("      Based on the price at the time of the quote");
+    console.log("      Without slippage consideration:", quote.tokenEstOut);
+    console.log("  - Trade fee (bps):", quote.tradeFee);
 
-    console.log("orcaSwapIx", JSON.stringify(orcaSwapIx, null, 2));
-
-    // 2) Build the SwapLeg that the router understands
-    // COUNT MUST MATCH WHAT YOU APPEND AS REMAINING ACCOUNTS FOR THIS LEG
-    // If your adapter expects [programId, ...allOrcaAccounts], include +1 for program id
-    const orcaRemainingForLeg = [
-      ...orcaMetas,
-      {
-        address: orcaProgram,
-        role: 0,
-      },
-    ];
-
-    const orcaSwapLeg: programClient.SwapLeg = {
-      dexId: programClient.DexId.OrcaWhirlpool,
-      inAmount: amountIn,
-      minOut: quote.tokenMinOut,
-      accountCount: orcaRemainingForLeg.length, // <-- IMPORTANT
-      data: orcaSwapIx.data, // raw CPI payload for Orca
-      inMint: devUSDC.mint,
-      outMint: devSAMO.mint,
-    };
-
-    // User token accounts (ATAs) for src/dest mints owned by your wallet
-    // devUSDC
-    const userSrcAta = address("BtdsPcsJWT2nJa2xzsEtqEF8w89cCavFGC64wkAcvTUz");
-    // devSAMO my token account
-    const userDstAta = address("9hVzz5jgLhQNEaWjVY4Gb7TY1o1H5stL89e5NkntkbBM");
-    // Fetch config to know who the admin is (fee vault must be admin’s ATA for OUT mint)
-    const cfg = await programClient.fetchConfig(client.rpc, configPda); // or your generated getter
-    const feeVaultAta = await client.getOrCreateAta(
-      client.wallet,
-      devSAMO.mint,
-      cfg.address
-    );
-    // Base route instruction (declared accounts only)
-    let routeIx = utils.getRouteInstruction(
-      {
-        config: configPda,
-        feeVault: feeVaultAta, // admin’s ATA for final out mint
-        legs: [orcaSwapLeg], // your single-leg route
-        userDestination: userDstAta, // <-- token account, not mint
-        userSource: userSrcAta, // <-- token account, not mint
-        userAuthority: client.wallet,
-        userMaxIn: quote.tokenIn,
-        userMinOut: quote.tokenMinOut,
-      },
-      orcaRemainingForLeg
-    );
-    // console.log("routeIx accounts", JSON.stringify(routeIx.accounts));
-
-    try {
-      const transactionMessage = pipe(
-        createTransactionMessage({ version: 0 }),
-        (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
-        (tx) =>
-          setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-        (tx) => appendTransactionMessageInstructions([routeIx], tx)
-      );
-
-      const transaction = await signTransactionMessageWithSigners(
-        transactionMessage
-      );
-      const signature = await client.sendAndConfirmTransaction(transaction, {
-        commitment: "confirmed",
-      });
-      console.log("signature", signature);
-    } catch (error) {
-      console.log("error", error);
-    }
+    // Send the transaction using action
+    // const swapSignature = await sendTx();
+    // console.log("swapSignature:", swapSignature);
   });
+
+  // it("(swap) swaps tokenA to tokenB", async function () {
+  //   await setRpc(utils.ANCHOR_PROVIDER_URL);
+  //   await setWhirlpoolsConfig("solanaDevnet");
+  //   // Token definition
+  //   // devToken specification
+  //   // https://everlastingsong.github.io/nebula/
+  //   const devUSDC = {
+  //     mint: address("BRjpCHtyQLNCo8gqRUr8jtdAj5AjPYQaoqbvcZiHok1k"),
+  //     decimals: 6,
+  //   };
+  //   const devSAMO = {
+  //     mint: address("Jd4M8bfJG3sAkd82RsGWyEXoaBXQP7njFzBwEaCTuDa"),
+  //     decimals: 9,
+  //   };
+
+  //   const tokenAccountAddresses = await prepareTokenAccountsInstructions(
+  //     client.rpc,
+  //     [devSAMO.mint, devUSDC.mint]
+  //   );
+
+  //   // WhirlpoolsConfig account
+  //   // devToken ecosystem / Orca Whirlpools
+
+  //   const whirlpoolConfigAddress = address(
+  //     "FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR"
+  //   );
+
+  //   // Get devSAMO/devUSDC whirlpool
+  //   // Whirlpools are identified by 5 elements (Program, Config, mint address of the 1st token,
+  //   // mint address of the 2nd token, tick spacing), similar to the 5 column compound primary key in DB
+  //   const tickSpacing = 64;
+  //   const [whirlpoolPda] = await getWhirlpoolAddress(
+  //     whirlpoolConfigAddress,
+  //     devSAMO.mint,
+  //     devUSDC.mint,
+  //     tickSpacing
+  //   );
+  //   console.log("whirlpoolPda:", whirlpoolPda);
+
+  //   // Swap 1 devUSDC for devSAMO
+  //   const amountIn = BigInt(100_000);
+  // const swapIx =  getSwapInstruction({
+  //     amount: amountIn,
+  //     tokenAuthority: client.wallet,
+  //     whirlpool: whirlpoolPda,
+  //     tokenOwnerAccountA: whirlpoolPda,
+  //     tokenVaultA: whirlpoolPda,
+  //     tokenMintA: devSAMO.mint,
+  //     tokenMintB: devUSDC.mint,
+  //   });
+
+  //   // 1) Build the Orca swap instruction using the Whirlpool kit (already done)
+  //   const orcaSwapIx = instructions[instructions.length - 1]; // has { programAddress, accounts[], data }
+  //   const orcaProgram = orcaSwapIx.programAddress; // Whirlpool program id (must be included as an AccountMeta)
+  //   const orcaMetas = orcaSwapIx.accounts.map((meta) =>
+  //     meta.address === SYSTEM_PROGRAM_ADDRESS
+  //       ? {
+  //           ...meta,
+  //           address: client.wallet.address,
+  //           signer: client.wallet,
+  //         }
+  //       : meta
+  //   );
+
+  //   console.log("orcaSwapIx", JSON.stringify(orcaSwapIx, null, 2));
+
+  //   // 2) Build the SwapLeg that the router understands
+  //   // COUNT MUST MATCH WHAT YOU APPEND AS REMAINING ACCOUNTS FOR THIS LEG
+  //   // If your adapter expects [programId, ...allOrcaAccounts], include +1 for program id
+  //   const orcaRemainingForLeg = [
+  //     ...orcaMetas,
+  //     {
+  //       address: orcaProgram,
+  //       role: 0,
+  //     },
+  //   ];
+
+  //   const orcaSwapLeg: programClient.SwapLeg = {
+  //     dexId: programClient.DexId.OrcaWhirlpool,
+  //     inAmount: amountIn,
+  //     minOut: quote.tokenMinOut,
+  //     accountCount: orcaRemainingForLeg.length, // <-- IMPORTANT
+  //     data: orcaSwapIx.data, // raw CPI payload for Orca
+  //     inMint: devUSDC.mint,
+  //     outMint: devSAMO.mint,
+  //   };
+
+  //   // User token accounts (ATAs) for src/dest mints owned by your wallet
+  //   // devUSDC
+  //   const userSrcAta = await client.getOrCreateAta(
+  //     client.wallet,
+  //     devUSDC.mint,
+  //     client.wallet.address
+  //   );
+  //   // devSAMO my token account
+  //   const userDstAta = await client.getOrCreateAta(
+  //     client.wallet,
+  //     devSAMO.mint,
+  //     client.wallet.address
+  //   );
+  //   // Fetch config to know who the admin is (fee vault must be admin’s ATA for OUT mint)
+  //   const cfg = await programClient.fetchConfig(client.rpc, configPda); // or your generated getter
+  //   const feeVaultAta = await client.getOrCreateAta(
+  //     client.wallet,
+  //     devSAMO.mint,
+  //     cfg.address
+  //   );
+  //   // Base route instruction (declared accounts only)
+  //   let routeIx = utils.getRouteInstruction(
+  //     {
+  //       config: configPda,
+  //       feeVault: feeVaultAta, // admin’s ATA for final out mint
+  //       legs: [orcaSwapLeg], // your single-leg route
+  //       userDestination: userDstAta, // <-- token account, not mint
+  //       userSource: userSrcAta, // <-- token account, not mint
+  //       userAuthority: client.wallet,
+  //       userMaxIn: quote.tokenIn,
+  //       userMinOut: quote.tokenMinOut,
+  //     },
+  //     orcaRemainingForLeg
+  //   );
+  //   // console.log("routeIx accounts", JSON.stringify(routeIx.accounts));
+
+  //   try {
+  //     const transactionMessage = pipe(
+  //       createTransactionMessage({ version: 0 }),
+  //       (tx) => setTransactionMessageFeePayerSigner(client.wallet, tx),
+  //       (tx) =>
+  //         setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  //       (tx) => appendTransactionMessageInstructions([routeIx], tx)
+  //     );
+
+  //     const transaction = await signTransactionMessageWithSigners(
+  //       transactionMessage
+  //     );
+  //     const signature = await client.sendAndConfirmTransaction(transaction, {
+  //       commitment: "confirmed",
+  //     });
+  //     console.log("signature", signature);
+  //   } catch (error) {
+  //     console.log("error", error);
+  //   }
+  // });
 });

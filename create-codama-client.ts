@@ -29,7 +29,7 @@ const loadAnchorIdl = async (): Promise<any> => {
   const codama = createFromRoot(rootNodeFromAnchor(idl));
 
   // Output path is also relative to ./aggregator
-  const generatedPath = path.join("clients", "generated");
+  const generatedPath = path.join("clients", "generated", "aggregator");
   codama.accept(renderJavaScriptVisitor(generatedPath));
   console.log(
     `✅ Successfully generated JavaScript client for directory: ${generatedPath}`

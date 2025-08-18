@@ -15,7 +15,7 @@ aggregator = "7XEqP1W4vwMtPfkkgs97RnQSeksJHT1jSFuJvg3zm2Hs"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

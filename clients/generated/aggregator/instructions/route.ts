@@ -142,12 +142,15 @@ export type RouteAsyncInput<
   TAccountConfig extends string = string,
   TAccountTokenProgram extends string = string,
 > = {
+  /** User */
   userAuthority: TransactionSigner<TAccountUserAuthority>;
   userSource: Address<TAccountUserSource>;
   userDestination: Address<TAccountUserDestination>;
+  /** Fee collector */
   feeVault: Address<TAccountFeeVault>;
   /** Global protocol config */
   config?: Address<TAccountConfig>;
+  /** Programs */
   tokenProgram?: Address<TAccountTokenProgram>;
   legs: RouteInstructionDataArgs['legs'];
   userMaxIn: RouteInstructionDataArgs['userMaxIn'];
@@ -252,12 +255,15 @@ export type RouteInput<
   TAccountConfig extends string = string,
   TAccountTokenProgram extends string = string,
 > = {
+  /** User */
   userAuthority: TransactionSigner<TAccountUserAuthority>;
   userSource: Address<TAccountUserSource>;
   userDestination: Address<TAccountUserDestination>;
+  /** Fee collector */
   feeVault: Address<TAccountFeeVault>;
   /** Global protocol config */
   config: Address<TAccountConfig>;
+  /** Programs */
   tokenProgram?: Address<TAccountTokenProgram>;
   legs: RouteInstructionDataArgs['legs'];
   userMaxIn: RouteInstructionDataArgs['userMaxIn'];
@@ -350,12 +356,15 @@ export type ParsedRouteInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
+    /** User */
     userAuthority: TAccountMetas[0];
     userSource: TAccountMetas[1];
     userDestination: TAccountMetas[2];
+    /** Fee collector */
     feeVault: TAccountMetas[3];
     /** Global protocol config */
     config: TAccountMetas[4];
+    /** Programs */
     tokenProgram: TAccountMetas[5];
   };
   data: RouteInstructionData;

@@ -20,6 +20,7 @@
     "@orca-so/whirlpools": "^3.0.0",
     "@orca-so/whirlpools-client": "^3.0.0",
     "@orca-so/whirlpools-core": "^2.0.0",
+    "@solana-program/memo": "^0.7.0",
     "@solana-program/system": "^0.7.0",
     "@solana-program/token": "^0.5.1",
     "@solana/kit": "^2.3.0",

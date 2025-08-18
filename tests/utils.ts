@@ -7,11 +7,11 @@ import {
   RouteInput,
   RouteInstruction,
   RouteInstructionDataArgs,
-} from "../clients/generated";
+} from "../clients/generated/aggregator";
 import {
   getAccountMetaFactory,
   ResolvedAccount,
-} from "../clients/generated/shared";
+} from "../clients/generated/aggregator/shared";
 
 export const stringify = (obj: any) => {
   const bigIntReplacer = (key: string, value: any) =>
